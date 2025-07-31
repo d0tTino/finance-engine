@@ -50,6 +50,11 @@ class SeparateTimezoneCaster implements CastsAttributes
         }
         $timeZone = $attributes[sprintf('%s_tz', $key)] ?? config('app.timezone');
 
+        // Issue 3711: When a timezone offset is included in the date string,
+        // Carbon can throw a "Double time specification" error. Parsing the
+        // value using the stored timezone and then explicitly setting the final
+        // timezone avoids this problem.
+        // See: https://github.com/firefly-iii/firefly-iii/issues/3711
         return Carbon::parse($value, $timeZone)->setTimezone(config('app.timezone'));
     }
 
