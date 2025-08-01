@@ -30,6 +30,25 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * Class AccountBalance.
+ *
+ * Represents the running balance for an account.
+ *
+ * @property int                             $id
+ * @property int                             $account_id
+ * @property int                             $transaction_currency_id
+ * @property string                          $balance
+ * @property string|null                     $title
+ * @property \Illuminate\Support\Carbon|null $date
+ * @property string|null                     $date_tz
+ * @property int|null                        $transaction_journal_id
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read Account                    $account
+ * @property-read TransactionCurrency        $transactionCurrency
+ */
+
 class AccountBalance extends Model
 {
     use HasFactory;
