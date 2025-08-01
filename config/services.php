@@ -65,4 +65,8 @@ return [
         'token'      => 'fake_token',
         'user_token' => 'fake_token',
     ],
+
+    'plaid'     => [
+        'webhook_secret' => env('PLAID_WEBHOOK_SECRET'),
+    ],
 ];
