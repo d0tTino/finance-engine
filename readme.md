@@ -139,6 +139,10 @@ There is also a [security policy](https://github.com/firefly-iii/firefly-iii/sec
 
 [![CII Best Practices][bp-badge]][bp-url]
 
+## Temporary files
+
+Occasionally you may notice a file called `temp-file.txt` in the root of the project. This file is created by automated scripts for short-lived tasks and can be safely ignored. It should not be committed or have any functional impact on your installation.
+
 <!-- SPONSOR TEXT -->
 
 ## Support the development of Firefly III
