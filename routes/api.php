@@ -1001,4 +1001,7 @@ Route::group(
     }
 );
 Route::post('v1/plaid-hook', PlaidHookController::class)->name('api.v1.plaid-hook');
-Route::get('v1/goals/{id}/projection', ProjectionController::class)->name('api.v1.goals.projection');
+Route::get('v1/goals/{id}/projection', ProjectionController::class)
+    ->name('api.v1.goals.projection');
+Route::get('v1/goals/{goal}/projection', ProjectionController::class)
+    ->name('api.v1.goal-projection');

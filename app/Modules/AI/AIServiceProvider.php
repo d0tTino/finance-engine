@@ -24,6 +24,7 @@ declare(strict_types=1);
 namespace FireflyIII\Modules\AI;
 
 use Illuminate\Support\ServiceProvider;
+use FireflyIII\Modules\AI\Webhooks\FinanceEventService;
 use Override;
 
 /**
@@ -45,6 +46,6 @@ class AIServiceProvider extends ServiceProvider
     #[Override]
     public function register(): void
     {
-        // TODO: bind AI related services into the container.
+        $this->app->singleton(FinanceEventService::class, fn () => new FinanceEventService());
     }
 }

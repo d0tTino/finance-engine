@@ -24,6 +24,7 @@ declare(strict_types=1);
 namespace FireflyIII\Handlers\Observer;
 
 use FireflyIII\Models\Transaction;
+use FireflyIII\Modules\AI\Webhooks\FinanceEventService;
 use FireflyIII\Support\Facades\Amount;
 use FireflyIII\Support\Http\Api\ExchangeRateConverter;
 use FireflyIII\Support\Models\AccountBalanceCalculator;
@@ -35,6 +36,12 @@ use Illuminate\Support\Facades\Log;
 class TransactionObserver
 {
     public static bool $recalculate = true;
+    private FinanceEventService $events;
+
+    public function __construct()
+    {
+        $this->events = app(FinanceEventService::class);
+    }
 
     public function created(Transaction $transaction): void
     {
@@ -46,6 +53,10 @@ class TransactionObserver
             }
         }
         $this->updateNativeAmount($transaction);
+        $this->events->publish('transactions', [
+            'action' => 'created',
+            'id'     => $transaction->id,
+        ]);
     }
 
     private function updateNativeAmount(Transaction $transaction): void
@@ -79,6 +90,12 @@ class TransactionObserver
     {
         app('log')->debug('Observe "deleting" of a transaction.');
         $transaction?->transactionJournal?->delete();
+        if (null !== $transaction) {
+            $this->events->publish('transactions', [
+                'action' => 'deleted',
+                'id'     => $transaction->id,
+            ]);
+        }
     }
 
     public function updated(Transaction $transaction): void
@@ -91,5 +108,9 @@ class TransactionObserver
             }
         }
         $this->updateNativeAmount($transaction);
+        $this->events->publish('transactions', [
+            'action' => 'updated',
+            'id'     => $transaction->id,
+        ]);
     }
 }
