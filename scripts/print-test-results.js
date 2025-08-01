@@ -1,6 +1,6 @@
 const { spawn } = require('child_process');
 
-const phpunit = spawn('php', ['vendor/bin/phpunit', '-c', 'phpunit.xml'], {
+const phpunit = spawn('php', ['-d', 'memory_limit=1G', 'vendor/bin/phpunit', '-c', 'phpunit.xml'], {
   stdio: 'inherit'
 });
 

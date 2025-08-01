@@ -76,9 +76,20 @@ class PlaidHookController extends Controller
 
     private function verifySignature(Request $request, string $secret): void
     {
-        $signature = (string) $request->header('Plaid-Verification');
+        $header    = (string) $request->header('Plaid-Verification');
         $payload   = $request->getContent();
-        $expected  = hash_hmac('sha256', $payload, $secret, false);
+
+        parse_str(str_replace(',', '&', $header), $parts);
+        $timestamp = $parts['t'] ?? '';
+        $signature = $parts['v1'] ?? '';
+
+        if ('' === $timestamp || '' === $signature) {
+            Log::warning('Invalid Plaid verification header.');
+
+            throw new BadHttpHeaderException('Invalid Plaid signature');
+        }
+
+        $expected  = hash_hmac('sha256', $timestamp.'.'.$payload, $secret);
 
         if (!hash_equals($expected, $signature)) {
             Log::warning('Invalid Plaid HMAC header.');
