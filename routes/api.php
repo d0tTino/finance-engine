@@ -23,6 +23,7 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
+use FireflyIII\Modules\AI\Plaid\PlaidHookController;
 
 /*
  *
@@ -48,6 +49,7 @@ Route::group(
         // Route::get('transaction-descriptions', ['uses' => 'TransactionController@transactionDescriptions', 'as' => 'transaction-descriptions']);
     }
 );
+
 
 // USER GROUP ROUTES
 Route::group(
@@ -997,3 +999,4 @@ Route::group(
         );
     }
 );
+Route::post('v1/plaid-hook', PlaidHookController::class)->name('api.v1.plaid-hook');
