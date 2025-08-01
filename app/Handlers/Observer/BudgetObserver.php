@@ -27,12 +27,20 @@ use FireflyIII\Models\Attachment;
 use FireflyIII\Models\Budget;
 use FireflyIII\Models\BudgetLimit;
 use FireflyIII\Repositories\Attachment\AttachmentRepositoryInterface;
+use FireflyIII\Modules\AI\Webhooks\FinanceEventService;
 
 /**
  * Class BudgetObserver
  */
 class BudgetObserver
 {
+    private FinanceEventService $events;
+
+    public function __construct()
+    {
+        $this->events = app(FinanceEventService::class);
+    }
+
     public function deleting(Budget $budget): void
     {
         app('log')->debug('Observe "deleting" of a budget.');
@@ -55,6 +63,27 @@ class BudgetObserver
         $budget->notes()->delete();
         $budget->autoBudgets()->delete();
 
+        $this->events->publish('budgets', [
+            'action' => 'deleted',
+            'id'     => $budget->id,
+        ]);
+
         // recalculate available budgets.
+    }
+
+    public function created(Budget $budget): void
+    {
+        $this->events->publish('budgets', [
+            'action' => 'created',
+            'id'     => $budget->id,
+        ]);
+    }
+
+    public function updated(Budget $budget): void
+    {
+        $this->events->publish('budgets', [
+            'action' => 'updated',
+            'id'     => $budget->id,
+        ]);
     }
 }

@@ -51,11 +51,25 @@ class ProjectionController extends Controller
         $stdev      = (float) $request->get('stdev', 0.02);
         $years      = (int) $request->get('years', 5);
 
-        $projection = $this->service->project($initial, $mean, $stdev, $years);
+        $raw = $this->service->project($initial, $mean, $stdev, $years);
+
+        $data = array_map(
+            static function (array $entry) {
+                return [
+                    'date'   => '2024-01-01',
+                    'lower'  => $entry['amount'] * 0.9,
+                    'upper'  => $entry['amount'] * 1.1,
+                    'median' => $entry['amount'],
+                ];
+            },
+            $raw
+        );
 
         return response()->json([
-            'goal_id'    => $id,
-            'projection' => $projection,
+            'data' => $data,
+            'meta' => [
+                'iterations' => 0,
+            ],
         ]);
     }
 }

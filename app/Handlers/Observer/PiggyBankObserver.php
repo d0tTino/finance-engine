@@ -28,6 +28,7 @@ use FireflyIII\Models\Attachment;
 use FireflyIII\Models\PiggyBank;
 use FireflyIII\Repositories\Attachment\AttachmentRepositoryInterface;
 use FireflyIII\Support\Http\Api\ExchangeRateConverter;
+use FireflyIII\Modules\AI\Webhooks\FinanceEventService;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -35,10 +36,21 @@ use Illuminate\Support\Facades\Log;
  */
 class PiggyBankObserver
 {
+    private FinanceEventService $events;
+
+    public function __construct()
+    {
+        $this->events = app(FinanceEventService::class);
+    }
+
     public function created(PiggyBank $piggyBank): void
     {
         Log::debug('Observe "created" of a piggy bank.');
         $this->updateNativeAmount($piggyBank);
+        $this->events->publish('goals', [
+            'action' => 'created',
+            'id'     => $piggyBank->id,
+        ]);
     }
 
     private function updateNativeAmount(PiggyBank $piggyBank): void
@@ -80,11 +92,19 @@ class PiggyBankObserver
         $piggyBank->piggyBankRepetitions()->delete();
 
         $piggyBank->notes()->delete();
+        $this->events->publish('goals', [
+            'action' => 'deleted',
+            'id'     => $piggyBank->id,
+        ]);
     }
 
     public function updated(PiggyBank $piggyBank): void
     {
         Log::debug('Observe "updated" of a piggy bank.');
         $this->updateNativeAmount($piggyBank);
+        $this->events->publish('goals', [
+            'action' => 'updated',
+            'id'     => $piggyBank->id,
+        ]);
     }
 }
