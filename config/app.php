@@ -41,6 +41,7 @@ use FireflyIII\Providers\RuleServiceProvider;
 use FireflyIII\Providers\SearchServiceProvider;
 use FireflyIII\Providers\SessionServiceProvider;
 use FireflyIII\Providers\TagServiceProvider;
+use FireflyIII\Modules\AI\AIServiceProvider;
 use FireflyIII\Support\Facades\AccountForm;
 use FireflyIII\Support\Facades\CurrencyForm;
 use FireflyIII\Support\Facades\ExpandedForm;
@@ -140,6 +141,7 @@ return [
         TagServiceProvider::class,
         AdminServiceProvider::class,
         RecurringServiceProvider::class,
+        AIServiceProvider::class,
     ],
     'aliases'         => [
         'Auth'          => Auth::class,
