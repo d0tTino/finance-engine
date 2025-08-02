@@ -25,6 +25,7 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Route;
 use FireflyIII\Modules\AI\Plaid\PlaidHookController;
 use FireflyIII\Modules\AI\Goals\ProjectionController;
+use FireflyIII\Modules\AI\Strategy\SignalController;
 
 /*
  *
@@ -1001,6 +1002,7 @@ Route::group(
     }
 );
 Route::post('v1/plaid-hook', PlaidHookController::class)->name('api.v1.plaid-hook');
+Route::post('v1/signals', SignalController::class)->name('api.v1.signals');
 Route::get('v1/goals/{id}/projection', ProjectionController::class)
     ->name('api.v1.goals.projection');
 Route::get('v1/goals/{goal}/projection', ProjectionController::class)
