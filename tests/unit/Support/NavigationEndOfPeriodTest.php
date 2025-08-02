@@ -51,10 +51,16 @@ final class NavigationEndOfPeriodTest extends TestCase
     }
 
     #[DataProvider('provideDates')]
-    public function testGivenADateAndFrequencyWhenCalculateTheDateThenReturnsTheExpectedDateSuccessful(string $frequency, Carbon $from, Carbon $expected): void
+    /**
+     * @param Carbon|callable $expected
+     */
+    public function testGivenADateAndFrequencyWhenCalculateTheDateThenReturnsTheExpectedDateSuccessful(string $frequency, Carbon $from, Carbon|callable $expected): void
     {
-        $period = clone $this->navigation->endOfPeriod($from, $frequency);
-        $this->assertSame($expected->toDateString(), $period->toDateString());
+        Carbon::setTestNow($from);
+        $period       = clone $this->navigation->endOfPeriod($from, $frequency);
+        $expectedDate = is_callable($expected) ? $expected($from) : $expected;
+        Carbon::setTestNow();
+        self::assertSame($expectedDate->toDateString(), $period->toDateString());
     }
 
     public static function provideDates(): iterable
@@ -99,8 +105,7 @@ final class NavigationEndOfPeriodTest extends TestCase
 
         yield 'last365' => ['last365', Carbon::now(), Carbon::now()->addDays(365)->endOfDay()];
 
-        yield 'MTD' => ['MTD', Carbon::now(),
-            Carbon::now()->isSameMonth(Carbon::now()) ? Carbon::now()->endOfDay() : Carbon::now()->endOfMonth()];
+        yield 'MTD' => ['MTD', Carbon::now(), fn () => today()->endOfDay()];
 
         yield 'QTD' => ['QTD', Carbon::now(), Carbon::now()->firstOfQuarter()->startOfDay()];
 
@@ -115,7 +120,7 @@ final class NavigationEndOfPeriodTest extends TestCase
         Log::spy();
 
         $period          = $this->navigation->endOfPeriod($from, $frequency);
-        $this->assertSame($expected->toDateString(), $period->toDateString());
+        self::assertSame($expected->toDateString(), $period->toDateString());
         $expectedMessage = sprintf('Cannot do endOfPeriod for $repeat_freq "%s"', $frequency);
 
         Log::shouldHaveReceived('error', [$expectedMessage]);
