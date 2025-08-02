@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Tests\integration\Api;
 
 use FireflyIII\Modules\AI\Strategy\BrokerSdk;
-use FireflyIII\Http\Middleware\Authenticate;
+use FireflyIII\Http\Middleware\OpaMiddleware;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\integration\TestCase;
 use Mockery;
 use Override;
+use function Safe\mkdir;
+use function Safe\touch;
 
 /**
  * @internal
@@ -20,20 +22,22 @@ final class SignalControllerTest extends TestCase
 {
     use RefreshDatabase;
 
+    private $user;
+
     #[Override]
     protected function setUp(): void
     {
         $dbPath = dirname(__DIR__, 3).'/storage/database/database.sqlite';
         if (!file_exists($dbPath)) {
-            @mkdir(dirname($dbPath), 0o777, true);
+            mkdir(dirname($dbPath), 0o777, true);
             touch($dbPath);
         }
         parent::setUp();
         if (!isset($this->user)) {
             $this->user = $this->createAuthenticatedUser();
         }
-        $this->actingAs($this->user);
-        $this->withoutMiddleware(Authenticate::class);
+        $this->actingAs($this->user, 'api');
+        $this->withoutMiddleware(OpaMiddleware::class);
     }
 
     public function testValidSignal(): void
