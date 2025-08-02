@@ -25,6 +25,8 @@ declare(strict_types=1);
 
 namespace FireflyIII\Modules\AI\Goals;
 
+use function now;
+
 /**
  * Class MonteCarloSimulationService
  *
@@ -69,5 +71,35 @@ class MonteCarloSimulationService
         }
 
         return $projection;
+    }
+
+    /**
+     * Return a projection formatted for JSON responses.
+     *
+     * @return array<string, mixed>
+     */
+    public function projectJson(float $initial, float $mean, float $stdev, int $years, int $runs = 1000): array
+    {
+        $raw   = $this->project($initial, $mean, $stdev, $years, $runs);
+
+        $start = now()->startOfMonth();
+        $data  = array_map(
+            static function (array $entry) use ($start) {
+                return [
+                    'date'   => $start->copy()->addMonths($entry['month'])->format('Y-m-d'),
+                    'lower'  => $entry['amount'] * 0.9,
+                    'upper'  => $entry['amount'] * 1.1,
+                    'median' => $entry['amount'],
+                ];
+            },
+            $raw
+        );
+
+        return [
+            'data' => $data,
+            'meta' => [
+                'iterations' => $runs,
+            ],
+        ];
     }
 }
