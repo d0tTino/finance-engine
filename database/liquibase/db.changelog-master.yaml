@@ -1,0 +1,4 @@
+databaseChangeLog:
+  - include:
+      file: ai_extension_strategy_signals.yaml
+      relativeToChangelogFile: true
