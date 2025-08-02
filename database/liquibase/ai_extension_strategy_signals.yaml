@@ -1,0 +1,51 @@
+databaseChangeLog:
+  - changeSet:
+      id: ai-extension-strategy-signals
+      author: openai
+      changes:
+        - createTable:
+            tableName: ai_extension_strategy_signals
+            schemaName: firefly
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT AUTO_INCREMENT
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: created_at
+                  type: datetime
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: datetime
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: deleted_at
+                  type: datetime
+                  constraints:
+                    nullable: true
+              - column:
+                  name: user_id
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+              - column:
+                  name: strategy
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: true
+              - column:
+                  name: signal
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: true
+              - column:
+                  name: message
+                  type: CLOB
+                  constraints:
+                    nullable: true
