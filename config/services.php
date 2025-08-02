@@ -69,4 +69,10 @@ return [
     'plaid'     => [
         'webhook_secret' => env('PLAID_WEBHOOK_SECRET'),
     ],
+
+    'broker'    => [
+        'driver'        => env('BROKER_DRIVER', 'alpaca'),
+        'alpaca_url'    => env('ALPACA_SIGNAL_URL'),
+        'freqtrade_url' => env('FREQTRADE_SIGNAL_URL'),
+    ],
 ];
