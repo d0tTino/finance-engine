@@ -27,6 +27,7 @@ namespace FireflyIII\Modules\AI\Plaid;
 
 use FireflyIII\Api\V1\Controllers\Controller;
 use FireflyIII\Exceptions\BadHttpHeaderException;
+use FireflyIII\Jobs\ProcessPlaidTransactions;
 use FireflyIII\Repositories\TransactionGroup\TransactionGroupRepositoryInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -65,13 +66,21 @@ class PlaidHookController extends Controller
 
         $this->verifySignature($request, $secret);
 
-        $data               = $request->all();
-        $data['user']       = auth()->user();
-        $data['user_group'] = $this->userGroup;
+        $payload                = $request->all();
+        $payload['user_id']     = (int) auth()->id();
+        $payload['user_group_id'] = (int) $this->userGroup->id;
 
-        $this->groupRepository->store($data);
+        $transactions           = $payload['transactions'] ?? [];
+        $basePayload            = $payload;
+        unset($basePayload['transactions']);
 
-        return response()->json([], 201);
+        foreach (array_chunk(is_array($transactions) ? $transactions : [], 5) as $chunk) {
+            $chunkPayload                 = $basePayload;
+            $chunkPayload['transactions'] = $chunk;
+            ProcessPlaidTransactions::dispatch($chunkPayload);
+        }
+
+        return response()->json([], 202);
     }
 
     private function verifySignature(Request $request, string $secret): void
