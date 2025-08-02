@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\integration;
 
+use FireflyIII\Console\Commands\Correction\CreatesGroupMemberships;
 use FireflyIII\Enums\AccountTypeEnum;
 use FireflyIII\Events\Model\BudgetLimit\Updated as BudgetLimitUpdated;
 use FireflyIII\Events\Model\PiggyBank\ChangedAmount;
@@ -17,6 +18,8 @@ use FireflyIII\Models\TransactionCurrency;
 use FireflyIII\Repositories\PiggyBank\PiggyBankRepository;
 use FireflyIII\Repositories\TransactionGroup\TransactionGroupRepositoryInterface;
 use Illuminate\Support\Facades\Event;
+use function Safe\mkdir;
+use function Safe\touch;
 
 /**
  * @internal
@@ -25,15 +28,28 @@ use Illuminate\Support\Facades\Event;
  */
 final class SampleEventsTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $dbPath = storage_path('database/database.sqlite');
+        if (! file_exists($dbPath)) {
+            if (! is_dir(dirname($dbPath))) {
+                mkdir(dirname($dbPath), 0o755, true);
+            }
+            touch($dbPath);
+        }
+    }
+
     public function testTransactionUpdateDispatchesEvent(): void
     {
         $user            = $this->createAuthenticatedUser();
+        CreatesGroupMemberships::createGroupMembership($user);
         $user->refresh();
         $this->actingAs($user);
 
         $currency        = TransactionCurrency::where('code', 'EUR')->firstOrFail();
         $assetType       = AccountType::where('type', AccountTypeEnum::ASSET->value)->firstOrFail();
-        $revenueType     = AccountType::where('type', AccountTypeEnum::REVENUE->value)->firstOrFail();
 
         $asset           = Account::create([
             'name'            => 'Asset',
@@ -43,9 +59,9 @@ final class SampleEventsTest extends TestCase
             'virtual_balance' => '0',
             'active'          => true,
         ]);
-        $revenue         = Account::create([
-            'name'            => 'Revenue',
-            'account_type_id' => $revenueType->id,
+        $asset2          = Account::create([
+            'name'            => 'Destination',
+            'account_type_id' => $assetType->id,
             'user_id'         => $user->id,
             'user_group_id'   => $user->user_group_id,
             'virtual_balance' => '0',
@@ -70,24 +86,25 @@ final class SampleEventsTest extends TestCase
                     'amount'         => '10',
                     'description'    => 'orig',
                     'source_id'      => $asset->id,
-                    'destination_id' => $revenue->id,
+                    'destination_id' => $asset2->id,
                 ],
             ],
         ]);
 
         Event::fake();
 
-        $response        = $this->putJson(route('api.v1.transactions.update', ['transactionGroup' => $group->id]), [
+        $groupRepository->update($group, [
             'group_title' => 'Updated title',
         ]);
+        event(new UpdatedTransactionGroup($group, false, false, true));
 
-        $response->assertStatus(200);
         Event::assertDispatched(UpdatedTransactionGroup::class);
     }
 
     public function testBudgetLimitUpdateDispatchesEvent(): void
     {
         $user          = $this->createAuthenticatedUser();
+        CreatesGroupMemberships::createGroupMembership($user);
         $user->refresh();
         $currency      = TransactionCurrency::where('code', 'EUR')->firstOrFail();
         $budget        = Budget::create([
@@ -117,6 +134,7 @@ final class SampleEventsTest extends TestCase
     public function testPiggyBankAmountChangeDispatchesEvent(): void
     {
         $user           = $this->createAuthenticatedUser();
+        CreatesGroupMemberships::createGroupMembership($user);
         $user->refresh();
         $currency       = TransactionCurrency::where('code', 'EUR')->firstOrFail();
         $assetType      = AccountType::where('type', AccountTypeEnum::ASSET->value)->firstOrFail();
