@@ -31,6 +31,7 @@ use FireflyIII\Http\Middleware\InstallationId;
 use FireflyIII\Http\Middleware\Installer;
 use FireflyIII\Http\Middleware\InterestingMessage;
 use FireflyIII\Http\Middleware\IsAdmin;
+use FireflyIII\Http\Middleware\OpaMiddleware;
 use FireflyIII\Http\Middleware\Range;
 use FireflyIII\Http\Middleware\RedirectIfAuthenticated;
 use FireflyIII\Http\Middleware\SecureHeaders;
@@ -74,6 +75,7 @@ class Kernel extends HttpKernel
             'bindings'   => Binder::class,
             'can'        => Authorize::class,
             'guest'      => RedirectIfAuthenticated::class,
+            'opa'        => OpaMiddleware::class,
             'throttle'   => ThrottleRequests::class,
         ];
     protected $middlewareGroups
