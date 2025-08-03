@@ -43,7 +43,6 @@ use FireflyIII\Repositories\Budget\OperationsRepositoryInterface;
 use FireflyIII\Repositories\Currency\CurrencyRepositoryInterface;
 use FireflyIII\Support\Http\Api\ExchangeRateConverter;
 use FireflyIII\Support\Http\Api\SummaryBalanceGrouped;
-use FireflyIII\Support\Http\Api\ValidatesUserGroupTrait;
 use FireflyIII\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
@@ -53,7 +52,6 @@ use Illuminate\Support\Facades\Log;
  */
 class BasicController extends Controller
 {
-    use ValidatesUserGroupTrait;
 
     private AvailableBudgetRepositoryInterface $abRepository;
     private AccountRepositoryInterface         $accountRepository;
@@ -77,7 +75,7 @@ class BasicController extends Controller
                 $this->currencyRepos     = app(CurrencyRepositoryInterface::class);
                 $this->opsRepository     = app(OperationsRepositoryInterface::class);
 
-                $userGroup               = $this->validateUserGroup($request);
+                $userGroup               = $this->userGroup ?? $this->validateUserGroup($request);
                 $this->abRepository->setUserGroup($userGroup);
                 $this->accountRepository->setUserGroup($userGroup);
                 $this->billRepository->setUserGroup($userGroup);
