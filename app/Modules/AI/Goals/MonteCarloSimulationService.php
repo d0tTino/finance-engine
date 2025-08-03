@@ -37,8 +37,8 @@ class MonteCarloSimulationService
     private function randomNormal(float $mean = 0.0, float $stdev = 1.0): float
     {
         // Box-Muller transform
-        $u1 = mt_rand() / mt_getrandmax();
-        $u2 = mt_rand() / mt_getrandmax();
+        $u1 = (mt_rand() + 1) / (mt_getrandmax() + 1);
+        $u2 = (mt_rand() + 1) / (mt_getrandmax() + 1);
         $z0 = \sqrt(-2.0 * \log($u1)) * \cos(2 * M_PI * $u2);
 
         return $z0 * $stdev + $mean;
@@ -51,22 +51,22 @@ class MonteCarloSimulationService
      */
     public function project(float $initial, float $mean, float $stdev, int $years, int $runs = 1000): array
     {
-        $steps      = $years * 12; // monthly steps
-        $projection = [];
+        $steps        = $years * 12; // monthly steps
+        $projection   = [];
+        $values       = array_fill(0, $runs, $initial);
+        $monthlyMean  = $mean / 12;
+        $monthlyStdev = $stdev / \sqrt(12);
 
         for ($step = 1; $step <= $steps; ++$step) {
-            $total        = 0.0;
+            $total = 0.0;
             for ($run = 0; $run < $runs; ++$run) {
-                $value = $initial;
-                for ($i = 0; $i < $step; ++$i) {
-                    $value *= 1 + $this->randomNormal($mean / 12, $stdev / \sqrt(12));
-                }
-                $total += $value;
+                $values[$run] *= 1 + $this->randomNormal($monthlyMean, $monthlyStdev);
+                $total       += $values[$run];
             }
-            $average      = $total / $runs;
+
             $projection[] = [
                 'month'  => $step,
-                'amount' => $average,
+                'amount' => $total / $runs,
             ];
         }
 
