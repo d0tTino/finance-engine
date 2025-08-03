@@ -7,6 +7,7 @@ Firefly III includes experimental AI-powered features that extend the core appli
 - `POST /api/v1/plaid-hook` – Receives webhooks from Plaid and stores transaction groups after verifying the request signature.
 - `GET /api/v1/goals/{goal}/projection` – Generates a Monte Carlo projection for a goal using parameters like `initial`, `mean`, `stdev`, and `years`.
 - `POST /api/v1/signals` – Accepts trading signals and forwards them to the configured broker.
+- `POST /api/v1/simulations/debt` – Evaluates debt payoff strategies using avalanche and snowball heuristics.
 
 ## Modules
 
@@ -18,6 +19,9 @@ Uses a Monte Carlo simulation service to estimate goal growth and returns a JSON
 
 ### Strategy Signals
 Validates trading signals (`asset`, `action`, `confidence`) and relays them via the broker SDK to external trading platforms.
+
+### Debt Simulation
+Runs heuristic strategies to generate ranked payoff plans for outstanding debts. See [Debt Simulation](debt-simulation.md) for request and response details.
 
 ### Webhooks & Event Bus
 `FinanceEventService` publishes finance events over Redis channels prefixed with `ume.events.finance.` for downstream consumers.
