@@ -58,15 +58,33 @@ trait ValidatesUserGroupTrait
         }
 
         /** @var User $user */
-        $user        = auth()->user();
-        $groupId     = 0;
-        if (!$request->has('user_group_id')) {
+        $user = auth()->user();
+
+        if (!$request->has('user_id')) {
+            Log::debug('validateUserGroup: request does not contain a user id.');
+
+            throw new AuthorizationException((string) trans('validation.no_access_user'));
+        }
+
+        $userId = (int) $request->get('user_id');
+        if ($userId !== (int) $user->id) {
+            Log::debug(sprintf('validateUserGroup: user #%d tried to access user #%d.', $user->id, $userId));
+
+            throw new AuthorizationException((string) trans('validation.no_access_user'));
+        }
+
+        $groupId = 0;
+        if ($request->has('group_id')) {
+            $groupId = (int) $request->get('group_id');
+            Log::debug(sprintf('validateUserGroup: user group submitted, search for memberships in group #%d.', $groupId));
+        }
+        if (!$request->has('group_id') && $request->has('user_group_id')) {
+            $groupId = (int) $request->get('user_group_id');
+            Log::debug(sprintf('validateUserGroup: legacy user group submitted, search for memberships in group #%d.', $groupId));
+        }
+        if (0 === $groupId) {
             $groupId = (int) $user->user_group_id;
             Log::debug(sprintf('validateUserGroup: no user group submitted, use default group #%d.', $groupId));
-        }
-        if ($request->has('user_group_id')) {
-            $groupId = (int) $request->get('user_group_id');
-            Log::debug(sprintf('validateUserGroup: user group submitted, search for memberships in group #%d.', $groupId));
         }
 
         /** @var UserGroupRepositoryInterface $repository */

@@ -82,6 +82,7 @@ abstract class Controller extends BaseController
         $this->middleware(
             function ($request, $next) {
                 $this->parameters = $this->getParameters();
+                $this->validateUserGroup($request);
                 if (auth()->check()) {
                     $language              = Steam::getLanguage();
                     $this->convertToNative = Amount::convertToNative();

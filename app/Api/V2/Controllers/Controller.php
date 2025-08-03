@@ -62,6 +62,7 @@ class Controller extends BaseController
         $this->middleware(
             function ($request, $next) {
                 $this->parameters = $this->getParameters();
+                $this->validateUserGroup($request);
 
                 return $next($request);
             }
