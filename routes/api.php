@@ -26,6 +26,7 @@ use Illuminate\Support\Facades\Route;
 use FireflyIII\Modules\AI\Plaid\PlaidHookController;
 use FireflyIII\Modules\AI\Goals\ProjectionController;
 use FireflyIII\Modules\AI\Strategy\SignalController;
+use FireflyIII\Api\V1\Controllers\Simulations\DebtController;
 
 /*
  *
@@ -1007,3 +1008,5 @@ Route::get('v1/goals/{id}/projection', ProjectionController::class)
     ->name('api.v1.goals.projection');
 Route::get('v1/goals/{goal}/projection', ProjectionController::class)
     ->name('api.v1.goal-projection');
+Route::post('v1/simulations/debt', DebtController::class)
+    ->name('api.v1.simulations.debt');

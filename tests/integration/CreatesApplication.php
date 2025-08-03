@@ -38,6 +38,16 @@ trait CreatesApplication
      */
     public function createApplication()
     {
+        $databasePath = __DIR__.'/../../storage/database/database.sqlite';
+
+        if (! file_exists($databasePath)) {
+            if (! is_dir(dirname($databasePath))) {
+                mkdir(dirname($databasePath), 0777, true);
+            }
+
+            touch($databasePath);
+        }
+
         $app = require __DIR__.'/../../bootstrap/app.php';
 
         $app->make(Kernel::class)->bootstrap();
