@@ -11,7 +11,7 @@ The debt simulation endpoint evaluates multiple payoff strategies and returns ra
 ```json
 {
   "user_id": 1,
-  "group_id": 1,
+  "user_group_id": 1,
   "monthly_budget": 500,
   "max_options": 2,
   "accounts": [
@@ -24,7 +24,7 @@ The debt simulation endpoint evaluates multiple payoff strategies and returns ra
 ### Request fields
 
 - `user_id` – Owning user identifier.
-- `group_id` – User group identifier.
+- `user_group_id` – User group identifier. Validated with [ValidatesUserGroupTrait](../app/Support/Http/Api/ValidatesUserGroupTrait.php) to ensure the authenticated user belongs to the group, preventing cross-group data exposure.
 - `monthly_budget` – Amount available each month for debt repayment.
 - `max_options` – Maximum number of strategies to return.
 - `accounts` – Array of debts to simulate. Each account contains:
