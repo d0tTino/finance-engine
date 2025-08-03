@@ -33,6 +33,7 @@ use FireflyIII\Repositories\Account\AccountRepositoryInterface;
 use FireflyIII\Repositories\Attachment\AttachmentRepositoryInterface;
 use FireflyIII\Support\Facades\Amount;
 use FireflyIII\Support\Http\Api\ExchangeRateConverter;
+use FireflyIII\Support\Cache\UserScopedCache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -45,6 +46,7 @@ class AccountObserver
     {
         //        Log::debug('Observe "created" of an account.');
         $this->updateNativeAmount($account);
+        UserScopedCache::flush($account->user_id, (int) $account->user_group_id);
     }
 
     private function updateNativeAmount(Account $account): void
@@ -103,11 +105,14 @@ class AccountObserver
 
         $account->notes()->delete();
         $account->locations()->delete();
+
+        UserScopedCache::flush($account->user_id, (int) $account->user_group_id);
     }
 
     public function updated(Account $account): void
     {
         //        Log::debug('Observe "updated" of an account.');
         $this->updateNativeAmount($account);
+        UserScopedCache::flush($account->user_id, (int) $account->user_group_id);
     }
 }

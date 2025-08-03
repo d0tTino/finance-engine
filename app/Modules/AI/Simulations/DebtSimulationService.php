@@ -25,6 +25,8 @@ declare(strict_types=1);
 
 namespace FireflyIII\Modules\AI\Simulations;
 
+use FireflyIII\Support\Cache\UserScopedCache;
+
 /**
  * Class DebtSimulationService
  *
@@ -53,36 +55,46 @@ class DebtSimulationService
      */
     public function simulate(int $userId, int $groupId, array $accounts, float $budget, int $maxOptions = 2): array
     {
-        // Generate plans using two common strategies: avalanche and snowball.
-        $strategies = [
-            'avalanche' => fn(array $a, array $b) => $b['rate'] <=> $a['rate'],
-            'snowball'  => fn(array $a, array $b) => $a['balance'] <=> $b['balance'],
-        ];
+        $hash     = hash('sha256', serialize([$accounts, $budget, $maxOptions]));
+        $cacheKey = 'debt-sim-' . $hash;
 
-        $plans = [];
-        foreach ($strategies as $name => $sort) {
-            $ordered = $accounts;
-            usort($ordered, $sort);
-            $simulation = $this->simulateOrder($ordered, $budget);
-            $plans[]    = [
-                'strategy'       => $name,
-                'order'          => array_column($ordered, 'id'),
-                'metrics'        => $simulation,
-            ];
-            if (count($plans) >= $maxOptions) {
-                break;
+        return UserScopedCache::remember(
+            $userId,
+            $groupId,
+            $cacheKey,
+            function () use ($accounts, $budget, $maxOptions): array {
+                // Generate plans using two common strategies: avalanche and snowball.
+                $strategies = [
+                    'avalanche' => fn(array $a, array $b) => $b['rate'] <=> $a['rate'],
+                    'snowball'  => fn(array $a, array $b) => $a['balance'] <=> $b['balance'],
+                ];
+
+                $plans = [];
+                foreach ($strategies as $name => $sort) {
+                    $ordered    = $accounts;
+                    usort($ordered, $sort);
+                    $simulation = $this->simulateOrder($ordered, $budget);
+                    $plans[]    = [
+                        'strategy' => $name,
+                        'order'    => array_column($ordered, 'id'),
+                        'metrics'  => $simulation,
+                    ];
+                    if (count($plans) >= $maxOptions) {
+                        break;
+                    }
+                }
+
+                // Rank plans by total interest paid (lowest is best).
+                usort($plans, static fn($a, $b) => $a['metrics']['interest'] <=> $b['metrics']['interest']);
+                $min = $plans[0]['metrics']['interest'] ?? 0.0;
+                foreach ($plans as $idx => &$plan) {
+                    $plan['rank']           = $idx + 1;
+                    $plan['deviation_cost'] = $plan['metrics']['interest'] - $min;
+                }
+
+                return $plans;
             }
-        }
-
-        // Rank plans by total interest paid (lowest is best).
-        usort($plans, static fn($a, $b) => $a['metrics']['interest'] <=> $b['metrics']['interest']);
-        $min = $plans[0]['metrics']['interest'] ?? 0.0;
-        foreach ($plans as $idx => &$plan) {
-            $plan['rank']           = $idx + 1;
-            $plan['deviation_cost'] = $plan['metrics']['interest'] - $min;
-        }
-
-        return $plans;
+        );
     }
 
     /**

@@ -24,6 +24,8 @@ declare(strict_types=1);
 
 namespace FireflyIII\Services\DebtSimulation;
 
+use FireflyIII\Support\Cache\UserScopedCache;
+
 /**
  * Class SimulationService
  *
@@ -38,32 +40,44 @@ class SimulationService
     /**
      * Run simulations for all strategies.
      *
+     * @param int   $userId        The owning user identifier.
+     * @param int   $groupId       The user group identifier.
      * @param array $debts         Each debt should be an associative array with keys:
      *                             name, balance, rate (annual) and min_payment.
      * @param float $monthlyBudget Total monthly amount available for debt payments.
      *
      * @return array
      */
-    public function simulate(array $debts, float $monthlyBudget): array
+    public function simulate(int $userId, int $groupId, array $debts, float $monthlyBudget): array
     {
-        $results = [];
+        $hash     = hash('sha256', serialize([$debts, $monthlyBudget]));
+        $cacheKey = 'detailed-sim-' . $hash;
 
-        foreach (self::STRATEGIES as $strategy) {
-            $plan      = $this->generateSchedule($debts, $monthlyBudget, $strategy);
-            $results[] = array_merge(['strategy' => $strategy], $plan);
-        }
+        return UserScopedCache::remember(
+            $userId,
+            $groupId,
+            $cacheKey,
+            function () use ($debts, $monthlyBudget): array {
+                $results = [];
 
-        usort($results, static function (array $a, array $b): int {
-            return [$a['total_interest'], $a['months']] <=> [$b['total_interest'], $b['months']];
-        });
+                foreach (self::STRATEGIES as $strategy) {
+                    $plan      = $this->generateSchedule($debts, $monthlyBudget, $strategy);
+                    $results[] = array_merge(['strategy' => $strategy], $plan);
+                }
 
-        $bestTotalInterest = $results[0]['total_interest'] ?? 0.0;
-        foreach ($results as $i => &$result) {
-            $result['rank']              = $i + 1;
-            $result['cost_of_deviation'] = $result['total_interest'] - $bestTotalInterest;
-        }
+                usort($results, static function (array $a, array $b): int {
+                    return [$a['total_interest'], $a['months']] <=> [$b['total_interest'], $b['months']];
+                });
 
-        return $results;
+                $bestTotalInterest = $results[0]['total_interest'] ?? 0.0;
+                foreach ($results as $i => &$result) {
+                    $result['rank']              = $i + 1;
+                    $result['cost_of_deviation'] = $result['total_interest'] - $bestTotalInterest;
+                }
+
+                return $results;
+            }
+        );
     }
 
     /**
