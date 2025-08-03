@@ -56,6 +56,9 @@ class DebtController extends Controller
             (int) $data['max_options']
         );
 
-        return response()->json(['data' => $plans]);
+        return response()->json([
+            'data' => $plans,
+            'meta' => ['ranking_heuristic' => DebtSimulationService::RANKING_HEURISTIC],
+        ]);
     }
 }

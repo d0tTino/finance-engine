@@ -35,7 +35,8 @@ use FireflyIII\Support\Cache\UserScopedCache;
  */
 class SimulationService
 {
-    private const STRATEGIES = ['avalanche', 'snowball'];
+    private const STRATEGIES         = ['avalanche', 'snowball'];
+    private const RANKING_HEURISTIC = 'total_interest_then_months';
 
     /**
      * Run simulations for all strategies.
@@ -70,9 +71,15 @@ class SimulationService
                 });
 
                 $bestTotalInterest = $results[0]['total_interest'] ?? 0.0;
+                $bestMonths        = $results[0]['months'] ?? 0;
                 foreach ($results as $i => &$result) {
                     $result['rank']              = $i + 1;
                     $result['cost_of_deviation'] = $result['total_interest'] - $bestTotalInterest;
+                    $result['ranking_heuristic'] = self::RANKING_HEURISTIC;
+                    $result['trade_offs']        = [
+                        'interest_diff' => $result['total_interest'] - $bestTotalInterest,
+                        'months_diff'   => $result['months'] - $bestMonths,
+                    ];
                 }
 
                 return $results;

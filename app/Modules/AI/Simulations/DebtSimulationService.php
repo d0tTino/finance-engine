@@ -41,6 +41,7 @@ use FireflyIII\Support\Cache\UserScopedCache;
  */
 class DebtSimulationService
 {
+    public const RANKING_HEURISTIC = 'interest_then_months';
     /**
      * Run the simulation.
      *
@@ -85,11 +86,17 @@ class DebtSimulationService
                 }
 
                 // Rank plans by total interest paid (lowest is best).
-                usort($plans, static fn($a, $b) => $a['metrics']['interest'] <=> $b['metrics']['interest']);
-                $min = $plans[0]['metrics']['interest'] ?? 0.0;
+                usort($plans, static fn($a, $b) => [$a['metrics']['interest'], $a['metrics']['months']] <=> [$b['metrics']['interest'], $b['metrics']['months']]);
+                $minInterest = $plans[0]['metrics']['interest'] ?? 0.0;
+                $minMonths   = $plans[0]['metrics']['months'] ?? 0;
                 foreach ($plans as $idx => &$plan) {
-                    $plan['rank']           = $idx + 1;
-                    $plan['deviation_cost'] = $plan['metrics']['interest'] - $min;
+                    $plan['rank']              = $idx + 1;
+                    $plan['deviation_cost']    = $plan['metrics']['interest'] - $minInterest;
+                    $plan['ranking_heuristic'] = self::RANKING_HEURISTIC;
+                    $plan['trade_offs']        = [
+                        'interest_diff' => $plan['metrics']['interest'] - $minInterest,
+                        'months_diff'   => $plan['metrics']['months'] - $minMonths,
+                    ];
                 }
 
                 return $plans;
