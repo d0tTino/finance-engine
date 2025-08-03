@@ -1,0 +1,50 @@
+<?php
+
+/*
+ * DebtSimulationServiceCachingTest.php
+ *
+ * This file is part of Firefly III (https://github.com/firefly-iii).
+ */
+
+declare(strict_types=1);
+
+namespace Tests\unit\Modules\AI;
+
+use FireflyIII\Modules\AI\Simulations\DebtSimulationService;
+use FireflyIII\Support\Cache\UserScopedCache;
+use Illuminate\Support\Facades\Cache;
+use Tests\integration\TestCase;
+
+/**
+ * @group unit-test
+ * @group ai
+ *
+ * @internal
+ */
+final class DebtSimulationServiceCachingTest extends TestCase
+{
+    public function testCachesAndFlushesResults(): void
+    {
+        Cache::flush();
+
+        $service  = new DebtSimulationService();
+        $userId   = 1;
+        $groupId  = 1;
+        $accounts = [
+            ['id' => 1, 'balance' => 100.0, 'rate' => 5.0],
+        ];
+        $budget     = 50.0;
+        $maxOptions = 2;
+
+        $service->simulate($userId, $groupId, $accounts, $budget, $maxOptions);
+
+        $hash     = hash('sha256', serialize([$accounts, $budget, $maxOptions]));
+        $cacheKey = sprintf('u:%d:g:%d:debt-sim-%s', $userId, $groupId, $hash);
+
+        $this->assertTrue(Cache::has($cacheKey));
+
+        UserScopedCache::flush($userId, $groupId);
+
+        $this->assertFalse(Cache::has($cacheKey));
+    }
+}
