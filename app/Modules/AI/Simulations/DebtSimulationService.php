@@ -30,27 +30,26 @@ use FireflyIII\Support\Cache\UserScopedCache;
 /**
  * Class DebtSimulationService
  *
- * Generates simple payoff plans for a list of debt accounts.  Two strategies
- * are supported: the "avalanche" method which prioritises the highest interest
- * rate and the "snowball" method which targets the smallest balance first.
- *
- * The implementation is intentionally lightweight – it provides deterministic
- * and easily testable output rather than a full financial model.  Each plan is
- * returned with basic metrics and a deviation cost relative to the cheapest
- * option.
+ * Simulates several debt payoff strategies and produces metrics and schedules
+ * for each plan. Currently supports the widely used "avalanche" and
+ * "snowball" approaches.
  */
 class DebtSimulationService
 {
     public const RANKING_HEURISTIC = 'interest_then_months';
+
+    private const STRATEGIES = ['avalanche', 'snowball'];
+
     /**
-     * Run the simulation.
+     * Run simulations for all strategies.
      *
-     * @param int   $userId        The owning user identifier.
-     * @param int   $groupId       The user group identifier.
-     * @param array $accounts      Array of accounts. Each entry must contain
-     *                             `id`, `balance` and `rate` (APR percentage).
-     * @param float $budget        Monthly budget available for repayments.
-     * @param int   $maxOptions    Maximum number of plans to return.
+     * @param int   $userId     The owning user identifier.
+     * @param int   $groupId    The user group identifier.
+     * @param array $accounts   Array of accounts. Each entry must contain
+     *                          `id`, `balance` and `rate` (APR percentage) and
+     *                          may contain `name` and `min_payment`.
+     * @param float $budget     Total monthly amount available for debt payments.
+     * @param int   $maxOptions Maximum number of plans to return.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -64,39 +63,43 @@ class DebtSimulationService
             $groupId,
             $cacheKey,
             function () use ($accounts, $budget, $maxOptions): array {
-                // Generate plans using two common strategies: avalanche and snowball.
-                $strategies = [
-                    'avalanche' => fn(array $a, array $b) => $b['rate'] <=> $a['rate'],
-                    'snowball'  => fn(array $a, array $b) => $a['balance'] <=> $b['balance'],
-                ];
+                // Normalize account data for simulation service.
+                $debts = array_map(static function (array $account): array {
+                    return [
+                        'name'        => (string) ($account['name'] ?? $account['id']),
+                        'balance'     => (float) $account['balance'],
+                        'rate'        => (float) $account['rate'] / 100,
+                        'min_payment' => (float) ($account['min_payment'] ?? $account['minimum_payment'] ?? 0.0),
+                    ];
+                }, $accounts);
 
                 $plans = [];
-                foreach ($strategies as $name => $sort) {
-                    $ordered    = $accounts;
-                    usort($ordered, $sort);
-                    $simulation = $this->simulateOrder($ordered, $budget);
-                    $plans[]    = [
-                        'strategy' => $name,
-                        'order'    => array_column($ordered, 'id'),
-                        'metrics'  => $simulation,
-                    ];
+                foreach (self::STRATEGIES as $strategy) {
+                    $plan    = $this->generateSchedule($debts, $budget, $strategy);
+                    $plans[] = array_merge(['strategy' => $strategy], $plan);
                     if (count($plans) >= $maxOptions) {
                         break;
                     }
                 }
 
-                // Rank plans by total interest paid (lowest is best).
-                usort($plans, static fn($a, $b) => [$a['metrics']['interest'], $a['metrics']['months']] <=> [$b['metrics']['interest'], $b['metrics']['months']]);
-                $minInterest = $plans[0]['metrics']['interest'] ?? 0.0;
-                $minMonths   = $plans[0]['metrics']['months'] ?? 0;
-                foreach ($plans as $idx => &$plan) {
-                    $plan['rank']              = $idx + 1;
-                    $plan['deviation_cost']    = $plan['metrics']['interest'] - $minInterest;
-                    $plan['ranking_heuristic'] = self::RANKING_HEURISTIC;
-                    $plan['trade_offs']        = [
-                        'interest_diff' => $plan['metrics']['interest'] - $minInterest,
-                        'months_diff'   => $plan['metrics']['months'] - $minMonths,
+                usort($plans, static function (array $a, array $b): int {
+                    return [$a['total_interest'], $a['months']] <=> [$b['total_interest'], $b['months']];
+                });
+
+                $bestInterest  = $plans[0]['total_interest'] ?? 0.0;
+                $bestMonths    = $plans[0]['months'] ?? 0;
+                $worstInterest = max(array_column($plans, 'total_interest'));
+
+                foreach ($plans as $i => &$plan) {
+                    $plan['rank']                  = $i + 1;
+                    $plan['is_optimal']            = 0 === $i;
+                    $plan['interest_saved']        = $worstInterest - $plan['total_interest'];
+                    $plan['time_to_payoff_months'] = $plan['months'];
+                    $plan['cost_of_deviation']     = [
+                        'currency'    => $plan['total_interest'] - $bestInterest,
+                        'time_months' => $plan['months'] - $bestMonths,
                     ];
+                    $plan['ranking_heuristic']     = self::RANKING_HEURISTIC;
                 }
 
                 return $plans;
@@ -105,46 +108,149 @@ class DebtSimulationService
     }
 
     /**
-     * Simulate paying off accounts in the given order.
+     * Generate the monthly schedule for one specific strategy.
      *
-     * @param array<int, array{id:int, balance:float, rate:float}> $accounts
-     * @param float                                                $budget
+     * @param array  $debts
+     * @param float  $monthlyBudget
+     * @param string $strategy
      *
-     * @return array<string, float|int>
+     * @return array<string, mixed>
      */
-    private function simulateOrder(array $accounts, float $budget): array
+    private function generateSchedule(array $debts, float $monthlyBudget, string $strategy): array
     {
-        $balances = array_map(static fn($a) => $a['balance'], $accounts);
-        $rates    = array_map(static fn($a) => $a['rate'] / 100, $accounts);
-        $months   = 0;
-        $interest = 0.0;
+        $debts = array_map(static function (array $debt): array {
+            $debt['balance']     = (float) $debt['balance'];
+            $debt['rate']        = (float) $debt['rate'];
+            $debt['min_payment'] = (float) $debt['min_payment'];
 
-        while (array_sum($balances) > 0.01 && $months < 1200) { // cap to prevent infinite loops
-            // Apply monthly interest
-            foreach ($balances as $i => $balance) {
-                if ($balance <= 0) {
+            return $debt;
+        }, $debts);
+
+        $schedule          = [];
+        $totalInterest     = 0.0;
+        $month             = 0;
+        $cashFlowTimeline  = [];
+
+        while ($this->hasBalance($debts)) {
+            ++$month;
+            $interestThisMonth = 0.0;
+            foreach ($debts as &$debt) {
+                if ($debt['balance'] <= 0) {
                     continue;
                 }
-                $charge      = $balance * $rates[$i] / 12;
-                $balances[$i] += $charge;
-                $interest    += $charge;
+                $interest           = $debt['balance'] * $debt['rate'] / 12;
+                $debt['balance']   += $interest;
+                $interestThisMonth += $interest;
             }
+            unset($debt);
 
-            $remaining = $budget;
-            foreach ($balances as $i => $balance) {
-                if ($balance <= 0 || $remaining <= 0) {
+            $paymentPlan     = [];
+            $remainingBudget = $monthlyBudget;
+
+            // Pay minimums first.
+            foreach ($debts as &$debt) {
+                if ($debt['balance'] <= 0) {
+                    $paymentPlan[$debt['name']] = 0.0;
                     continue;
                 }
-                $pay            = min($balance, $remaining);
-                $balances[$i]  -= $pay;
-                $remaining     -= $pay;
+                $payment                     = min($debt['min_payment'], $debt['balance']);
+                $debt['balance']            -= $payment;
+                $paymentPlan[$debt['name']]  = $payment;
+                $remainingBudget            -= $payment;
             }
-            ++$months;
+            unset($debt);
+
+            // Allocate any extra budget to targeted debt(s).
+            while ($remainingBudget > 0 && $this->hasBalance($debts)) {
+                $targetKey = $this->selectTargetDebt($debts, $strategy);
+                if (null === $targetKey) {
+                    break;
+                }
+                $target = &$debts[$targetKey];
+                $extra  = min($remainingBudget, $target['balance']);
+                if (!isset($paymentPlan[$target['name']])) {
+                    $paymentPlan[$target['name']] = 0.0;
+                }
+                $target['balance']          -= $extra;
+                $paymentPlan[$target['name']] += $extra;
+                $remainingBudget            -= $extra;
+                unset($target);
+            }
+
+            $totalPayment      = $monthlyBudget - $remainingBudget;
+            $totalInterest    += $interestThisMonth;
+            $cashFlowTimeline[] = ['month' => $month, 'cash_flow' => $remainingBudget];
+
+            $balanceSnapshot = [];
+            foreach ($debts as $debt) {
+                $balanceSnapshot[$debt['name']] = max($debt['balance'], 0.0);
+            }
+
+            $schedule[] = [
+                'month'     => $month,
+                'payments'  => $paymentPlan,
+                'balances'  => $balanceSnapshot,
+                'interest'  => $interestThisMonth,
+                'payment'   => $totalPayment,
+                'cash_flow' => $remainingBudget,
+            ];
         }
 
         return [
-            'months'   => $months,
-            'interest' => $interest,
+            'schedule'          => $schedule,
+            'total_interest'    => $totalInterest,
+            'months'            => $month,
+            'monthly_cash_flow' => $cashFlowTimeline,
         ];
     }
+
+    /**
+     * Check if there is any outstanding balance left.
+     */
+    private function hasBalance(array $debts): bool
+    {
+        foreach ($debts as $debt) {
+            if ($debt['balance'] > 0.0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Select the index of the debt that should receive extra payments.
+     */
+    private function selectTargetDebt(array $debts, string $strategy): ?int
+    {
+        $indices     = array_keys($debts);
+        $activeDebts = array_filter($indices, static function ($idx) use ($debts): bool {
+            return $debts[$idx]['balance'] > 0.0;
+        });
+        if ([] === $activeDebts) {
+            return null;
+        }
+        $key = null;
+        if ('avalanche' === $strategy) {
+            $maxRate = -INF;
+            foreach ($activeDebts as $idx) {
+                if ($debts[$idx]['rate'] > $maxRate) {
+                    $maxRate = $debts[$idx]['rate'];
+                    $key     = $idx;
+                }
+            }
+        }
+        if ('snowball' === $strategy) {
+            $minBalance = INF;
+            foreach ($activeDebts as $idx) {
+                if ($debts[$idx]['balance'] < $minBalance) {
+                    $minBalance = $debts[$idx]['balance'];
+                    $key        = $idx;
+                }
+            }
+        }
+
+        return $key;
+    }
 }
+
