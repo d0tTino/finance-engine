@@ -47,8 +47,8 @@ class DebtRequest extends FormRequest
     public function getData(): array
     {
         return [
-            'user_id'        => $this->convertInteger('user_id'),
-            'group_id'       => $this->convertInteger('group_id'),
+            'user_id'        => $this->convertString('user_id'),
+            'group_id'       => $this->filled('group_id') ? $this->convertString('group_id') : null,
             'accounts'       => $this->get('accounts', []),
             'monthly_budget' => $this->convertFloat('monthly_budget'),
             'max_options'    => $this->convertInteger('max_options'),
@@ -61,11 +61,16 @@ class DebtRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'user_id'        => 'required|integer',
-            'group_id'       => 'required|integer',
-            'accounts'       => 'required|array|min:1',
-            'monthly_budget' => 'required|numeric|min:0',
-            'max_options'    => 'required|integer|min:1',
+            'user_id'                      => 'required|uuid',
+            'group_id'                     => 'nullable|uuid',
+            'accounts'                     => 'required|array|min:1',
+            'accounts.*'                   => 'required|array',
+            'accounts.*.account_id'        => 'required|integer',
+            'accounts.*.balance'           => 'required|numeric|min:0',
+            'accounts.*.apr'               => 'required|numeric|min:0',
+            'accounts.*.minimum_payment'   => 'required|numeric|min:0',
+            'monthly_budget'               => 'required|numeric|min:0',
+            'max_options'                  => 'required|integer|min:1',
         ];
     }
 }
