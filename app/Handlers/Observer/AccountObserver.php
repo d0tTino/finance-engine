@@ -46,7 +46,7 @@ class AccountObserver
     {
         //        Log::debug('Observe "created" of an account.');
         $this->updateNativeAmount($account);
-        UserScopedCache::flush($account->user_id, (int) $account->user_group_id);
+        UserScopedCache::flush((string) $account->user_id, null === $account->user_group_id ? null : (string) $account->user_group_id);
     }
 
     private function updateNativeAmount(Account $account): void
@@ -106,13 +106,13 @@ class AccountObserver
         $account->notes()->delete();
         $account->locations()->delete();
 
-        UserScopedCache::flush($account->user_id, (int) $account->user_group_id);
+        UserScopedCache::flush((string) $account->user_id, null === $account->user_group_id ? null : (string) $account->user_group_id);
     }
 
     public function updated(Account $account): void
     {
         //        Log::debug('Observe "updated" of an account.');
         $this->updateNativeAmount($account);
-        UserScopedCache::flush($account->user_id, (int) $account->user_group_id);
+        UserScopedCache::flush((string) $account->user_id, null === $account->user_group_id ? null : (string) $account->user_group_id);
     }
 }

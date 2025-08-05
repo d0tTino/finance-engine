@@ -28,8 +28,8 @@ final class DebtSimulationServiceCachingTest extends TestCase
         Cache::flush();
 
         $service  = new DebtSimulationService();
-        $userId   = 1;
-        $groupId  = 1;
+        $userId   = '1';
+        $groupId  = '1';
         $accounts = [
             ['id' => 1, 'balance' => 100.0, 'rate' => 5.0],
         ];
@@ -39,7 +39,7 @@ final class DebtSimulationServiceCachingTest extends TestCase
         $service->simulate($userId, $groupId, $accounts, $budget, $maxOptions);
 
         $hash     = hash('sha256', serialize([$accounts, $budget, $maxOptions]));
-        $cacheKey = sprintf('u:%d:g:%d:debt-sim-%s', $userId, $groupId, $hash);
+        $cacheKey = sprintf('u:%s:g:%s:debt-sim-%s', $userId, $groupId, $hash);
 
         self::assertTrue(Cache::has($cacheKey));
 
