@@ -19,17 +19,17 @@ use Illuminate\Support\Facades\Cache;
  */
 class UserScopedCache
 {
-    private static function prefix(int $userId, int $groupId): string
+    private static function prefix(string $userId, ?string $groupId): string
     {
-        return sprintf('u:%d:g:%d', $userId, $groupId);
+        return sprintf('u:%s:g:%s', $userId, $groupId ?? 'null');
     }
 
-    private static function indexKey(int $userId, int $groupId): string
+    private static function indexKey(string $userId, ?string $groupId): string
     {
         return self::prefix($userId, $groupId) . ':keys';
     }
 
-    public static function remember(int $userId, int $groupId, string $key, callable $callback, int $ttlSeconds = 3600)
+    public static function remember(string $userId, ?string $groupId, string $key, callable $callback, int $ttlSeconds = 3600)
     {
         $cacheKey = self::prefix($userId, $groupId) . ':' . $key;
         if (Cache::has($cacheKey)) {
@@ -40,6 +40,9 @@ class UserScopedCache
 
         $indexKey = self::indexKey($userId, $groupId);
         $keys     = Cache::get($indexKey, []);
+        if (!is_array($keys)) {
+            $keys = [];
+        }
         if (!in_array($cacheKey, $keys, true)) {
             $keys[] = $cacheKey;
             Cache::put($indexKey, $keys, $ttlSeconds);
@@ -48,13 +51,13 @@ class UserScopedCache
         return $value;
     }
 
-    public static function forget(int $userId, int $groupId, string $key): void
+    public static function forget(string $userId, ?string $groupId, string $key): void
     {
         $cacheKey = self::prefix($userId, $groupId) . ':' . $key;
         Cache::forget($cacheKey);
     }
 
-    public static function flush(int $userId, int $groupId): void
+    public static function flush(string $userId, ?string $groupId): void
     {
         $indexKey = self::indexKey($userId, $groupId);
         $keys     = Cache::pull($indexKey, []);

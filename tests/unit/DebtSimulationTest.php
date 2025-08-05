@@ -31,7 +31,7 @@ final class DebtSimulationTest extends TestCase
         ];
         $budget = 200.0;
 
-        $plans = $service->simulate($user->id, 1, $accounts, $budget, 2);
+        $plans = $service->simulate((string) $user->id, '1', $accounts, $budget, 2);
 
         self::assertCount(2, $plans);
 
@@ -69,7 +69,7 @@ final class DebtSimulationTest extends TestCase
         ];
         $budget = 300.0;
 
-        $plans = $service->simulate($user->id, 1, $accounts, $budget, 2);
+        $plans = $service->simulate((string) $user->id, '1', $accounts, $budget, 2);
         $mapped = [];
         foreach ($plans as $plan) {
             $mapped[$plan['strategy']] = $plan;

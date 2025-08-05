@@ -43,8 +43,8 @@ class DebtSimulationService
     /**
      * Run simulations for all strategies.
      *
-     * @param int   $userId     The owning user identifier.
-     * @param int   $groupId    The user group identifier.
+     * @param string      $userId     The owning user identifier.
+     * @param string|null $groupId    The user group identifier.
      * @param array $accounts   Array of accounts. Each entry must contain
      *                          `id`, `balance` and `rate` (APR percentage) and
      *                          may contain `name` and `min_payment`.
@@ -53,7 +53,7 @@ class DebtSimulationService
      *
      * @return array<int, array<string, mixed>>
      */
-    public function simulate(int $userId, int $groupId, array $accounts, float $budget, int $maxOptions = 2): array
+    public function simulate(string $userId, ?string $groupId, array $accounts, float $budget, int $maxOptions = 2): array
     {
         $hash     = hash('sha256', serialize([$accounts, $budget, $maxOptions]));
         $cacheKey = 'debt-sim-' . $hash;
