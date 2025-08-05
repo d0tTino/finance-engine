@@ -29,6 +29,7 @@ use FireflyIII\Api\V1\Controllers\Controller;
 use FireflyIII\Api\V1\Requests\Simulations\DebtRequest;
 use FireflyIII\Modules\AI\Simulations\DebtSimulationService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Str;
 
 /**
  * Class DebtController
@@ -47,8 +48,8 @@ class DebtController extends Controller
 
     public function __invoke(DebtRequest $request): JsonResponse
     {
-        $data  = $request->getData();
-        $plans = $this->service->simulate(
+        $data       = $request->getData();
+        $plans      = $this->service->simulate(
             $data['user_id'],
             $data['group_id'],
             $data['accounts'],
@@ -56,8 +57,41 @@ class DebtController extends Controller
             (int) $data['max_options']
         );
 
+        $analysisId      = (string) Str::uuid();
+        $currency        = config('firefly.default_currency');
+        $proposedActions = array_map(
+            static function (array $plan) use ($analysisId, $currency): array {
+                return [
+                    'analysis_id' => $analysisId,
+                    'is_optimal'  => 1 === ($plan['rank'] ?? 0),
+                    'schedule'    => [
+                        'strategy' => $plan['strategy'],
+                        'order'    => $plan['order'],
+                    ],
+                    'aggregated_metrics' => [
+                        'months'            => $plan['metrics']['months'],
+                        'interest'          => $plan['metrics']['interest'],
+                        'cost_of_deviation' => [
+                            'amount' => [
+                                'value'    => $plan['deviation_cost'],
+                                'currency' => $currency,
+                            ],
+                            'time'   => [
+                                'value' => $plan['trade_offs']['months_diff'] ?? 0,
+                                'unit'  => 'months',
+                            ],
+                        ],
+                    ],
+                ];
+            },
+            $plans
+        );
+
         return response()->json([
-            'data' => $plans,
+            'data' => [
+                'analysis_id'      => $analysisId,
+                'proposed_actions' => $proposedActions,
+            ],
             'meta' => ['ranking_heuristic' => DebtSimulationService::RANKING_HEURISTIC],
         ]);
     }
