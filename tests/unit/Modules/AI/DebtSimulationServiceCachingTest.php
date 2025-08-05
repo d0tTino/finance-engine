@@ -41,10 +41,10 @@ final class DebtSimulationServiceCachingTest extends TestCase
         $hash     = hash('sha256', serialize([$accounts, $budget, $maxOptions]));
         $cacheKey = sprintf('u:%d:g:%d:debt-sim-%s', $userId, $groupId, $hash);
 
-        $this->assertTrue(Cache::has($cacheKey));
+        self::assertTrue(Cache::has($cacheKey));
 
         UserScopedCache::flush($userId, $groupId);
 
-        $this->assertFalse(Cache::has($cacheKey));
+        self::assertFalse(Cache::has($cacheKey));
     }
 }
