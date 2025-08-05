@@ -28,6 +28,7 @@ namespace FireflyIII\Api\V1\Controllers\Simulations;
 use FireflyIII\Api\V1\Controllers\Controller;
 use FireflyIII\Api\V1\Requests\Simulations\DebtRequest;
 use FireflyIII\Modules\AI\Simulations\DebtSimulationService;
+use FireflyIII\Enums\UserRoleEnum;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Str;
 
@@ -38,6 +39,9 @@ use Illuminate\Support\Str;
  */
 class DebtController extends Controller
 {
+    /** @var array<int, UserRoleEnum> */
+    protected array $acceptedRoles = [UserRoleEnum::READ_ONLY];
+
     private DebtSimulationService $service;
 
     public function __construct(DebtSimulationService $service)
@@ -52,6 +56,7 @@ class DebtController extends Controller
         $plans      = $this->service->simulate(
             $data['user_id'],
             $data['group_id'],
+
             $data['accounts'],
             (float) $data['monthly_budget'],
             (int) $data['max_options']

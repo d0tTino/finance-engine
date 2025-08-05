@@ -27,11 +27,11 @@ final class DebtSimulationTest extends TestCase
         $service = new DebtSimulationService();
 
         $accounts = [
-            ['id' => 1, 'balance' => 1000.0, 'rate' => 10.0],
+            ['id' => 1, 'name' => 'Loan', 'balance' => 1000.0, 'rate' => 10.0, 'min_payment' => 0.0],
         ];
         $budget = 200.0;
 
-        $plans = $service->simulate($user->id, 1, $accounts, $budget, 2);
+        $plans = $service->simulate((string) $user->id, '1', $accounts, $budget, 2);
 
         self::assertCount(2, $plans);
 
@@ -40,16 +40,22 @@ final class DebtSimulationTest extends TestCase
             $mapped[$plan['strategy']] = $plan;
         }
 
-        self::assertSame([1], $mapped['avalanche']['order']);
-        self::assertSame([1], $mapped['snowball']['order']);
+        self::assertEquals(6, $mapped['avalanche']['time_to_payoff_months']);
+        self::assertEquals(6, $mapped['snowball']['time_to_payoff_months']);
 
-        self::assertEqualsWithDelta(25.7737936362, $mapped['avalanche']['metrics']['interest'], 0.0001);
-        self::assertEquals(6, $mapped['avalanche']['metrics']['months']);
-        self::assertEqualsWithDelta($mapped['avalanche']['metrics']['interest'], $mapped['snowball']['metrics']['interest'], 0.0001);
-        self::assertSame($mapped['avalanche']['metrics']['months'], $mapped['snowball']['metrics']['months']);
+        self::assertEqualsWithDelta(0.0, $mapped['avalanche']['interest_saved'], 0.0001);
+        self::assertEqualsWithDelta(0.0, $mapped['snowball']['interest_saved'], 0.0001);
 
-        self::assertSame(0.0, $mapped['avalanche']['deviation_cost']);
-        self::assertSame(0.0, $mapped['snowball']['deviation_cost']);
+        self::assertTrue($mapped['avalanche']['is_optimal']);
+        self::assertFalse($mapped['snowball']['is_optimal']);
+
+        self::assertEquals(0.0, $mapped['avalanche']['cost_of_deviation']['currency']);
+        self::assertEquals(0.0, $mapped['snowball']['cost_of_deviation']['currency']);
+        self::assertEquals(0, $mapped['avalanche']['cost_of_deviation']['time_months']);
+        self::assertEquals(0, $mapped['snowball']['cost_of_deviation']['time_months']);
+
+        self::assertCount(6, $mapped['avalanche']['schedule']);
+        self::assertCount(6, $mapped['snowball']['schedule']);
     }
 
     public function testRanksAvalancheAheadOfSnowballWithMetrics(): void
@@ -58,30 +64,33 @@ final class DebtSimulationTest extends TestCase
         $service = new DebtSimulationService();
 
         $accounts = [
-            ['id' => 1, 'balance' => 1000.0, 'rate' => 10.0],
-            ['id' => 2, 'balance' => 500.0, 'rate' => 5.0],
+            ['id' => 1, 'name' => 'Loan1', 'balance' => 1000.0, 'rate' => 10.0, 'min_payment' => 0.0],
+            ['id' => 2, 'name' => 'Loan2', 'balance' => 500.0, 'rate' => 5.0, 'min_payment' => 0.0],
         ];
         $budget = 300.0;
 
-        $plans = $service->simulate($user->id, 1, $accounts, $budget, 2);
+        $plans = $service->simulate((string) $user->id, '1', $accounts, $budget, 2);
         $mapped = [];
         foreach ($plans as $plan) {
             $mapped[$plan['strategy']] = $plan;
         }
 
-        self::assertSame([1, 2], $mapped['avalanche']['order']);
-        self::assertSame([2, 1], $mapped['snowball']['order']);
-
         self::assertEquals(1, $mapped['avalanche']['rank']);
         self::assertEquals(2, $mapped['snowball']['rank']);
 
-        self::assertEqualsWithDelta(28.5355053317, $mapped['avalanche']['metrics']['interest'], 0.0001);
-        self::assertEqualsWithDelta(35.6186588887, $mapped['snowball']['metrics']['interest'], 0.0001);
-        self::assertEquals(6, $mapped['avalanche']['metrics']['months']);
-        self::assertEquals(6, $mapped['snowball']['metrics']['months']);
+        self::assertTrue($mapped['avalanche']['is_optimal']);
+        self::assertFalse($mapped['snowball']['is_optimal']);
 
-        self::assertEqualsWithDelta(7.0831535569, $mapped['snowball']['deviation_cost'], 0.0001);
-        self::assertEquals(0.0, $mapped['avalanche']['deviation_cost']);
+        self::assertEqualsWithDelta(7.0831535569, $mapped['avalanche']['interest_saved'], 0.0001);
+        self::assertEqualsWithDelta(0.0, $mapped['snowball']['interest_saved'], 0.0001);
+
+        self::assertEqualsWithDelta(7.0831535569, $mapped['snowball']['cost_of_deviation']['currency'], 0.0001);
+        self::assertEqualsWithDelta(0.0, $mapped['avalanche']['cost_of_deviation']['currency'], 0.0001);
+        self::assertEquals(0, $mapped['avalanche']['cost_of_deviation']['time_months']);
+        self::assertEquals(0, $mapped['snowball']['cost_of_deviation']['time_months']);
+
+        self::assertEquals(6, $mapped['avalanche']['time_to_payoff_months']);
+        self::assertEquals(6, $mapped['snowball']['time_to_payoff_months']);
 
         self::assertSame(DebtSimulationService::RANKING_HEURISTIC, $mapped['avalanche']['ranking_heuristic']);
     }
