@@ -62,30 +62,34 @@ class DebtController extends Controller
             (int) $data['max_options']
         );
 
-        $analysisId      = (string) Str::uuid();
-        $currency        = config('firefly.default_currency');
+        $analysisId = (string) Str::uuid();
+        $currency   = config('firefly.default_currency');
         $proposedActions = array_map(
-            static function (array $plan) use ($analysisId, $currency): array {
+            static function (array $plan) use ($currency): array {
                 return [
-                    'analysis_id' => $analysisId,
-                    'is_optimal'  => 1 === ($plan['rank'] ?? 0),
-                    'schedule'    => [
-                        'strategy' => $plan['strategy'],
-                        'order'    => $plan['order'],
+                    'rank'       => $plan['rank'],
+                    'is_optimal' => $plan['is_optimal'],
+                    'plan'       => [
+                        'strategy'          => $plan['strategy'],
+                        'schedule'          => $plan['schedule'],
+                        'monthly_cash_flow' => $plan['monthly_cash_flow'],
                     ],
-                    'aggregated_metrics' => [
-                        'months'            => $plan['metrics']['months'],
-                        'interest'          => $plan['metrics']['interest'],
-                        'cost_of_deviation' => [
-                            'amount' => [
-                                'value'    => $plan['deviation_cost'],
-                                'currency' => $currency,
-                            ],
-                            'time'   => [
-                                'value' => $plan['trade_offs']['months_diff'] ?? 0,
-                                'unit'  => 'months',
-                            ],
+                    'metrics' => [
+                        'interest_saved'        => (float) $plan['interest_saved'],
+                        'time_to_payoff_months' => (int) $plan['time_to_payoff_months'],
+                    ],
+                    'cost_of_deviation' => [
+                        'amount' => [
+                            'value'    => (float) $plan['cost_of_deviation']['currency'],
+                            'currency' => $currency,
                         ],
+                        'time' => [
+                            'value' => (int) $plan['cost_of_deviation']['time_months'],
+                            'unit'  => 'months',
+                        ],
+                    ],
+                    'meta' => [
+                        'ranking_heuristic' => $plan['ranking_heuristic'],
                     ],
                 ];
             },
@@ -94,10 +98,12 @@ class DebtController extends Controller
 
         return response()->json([
             'data' => [
-                'analysis_id'      => $analysisId,
                 'proposed_actions' => $proposedActions,
             ],
-            'meta' => ['ranking_heuristic' => DebtSimulationService::RANKING_HEURISTIC],
+            'meta' => [
+                'analysis_id'      => $analysisId,
+                'ranking_heuristic' => DebtSimulationService::RANKING_HEURISTIC,
+            ],
         ]);
     }
 }
