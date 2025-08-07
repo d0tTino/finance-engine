@@ -10,66 +10,122 @@ The debt simulation endpoint evaluates multiple payoff strategies and returns ra
 
 ```json
 {
-  "user_id": 1,
-  "user_group_id": 1,
+  "user_id": "550e8400-e29b-41d4-a716-446655440000",
+  "group_id": "3ba92f16-8ef0-4e25-9ad2-8152ef7491a7",
   "monthly_budget": 500,
   "max_options": 2,
   "accounts": [
-    {"id": 10, "balance": 4500, "rate": 15.99},
-    {"id": 11, "balance": 1200, "rate": 7.5}
+    {"account_id": 10, "balance": 4500, "apr": 15.99, "minimum_payment": 75},
+    {"account_id": 11, "balance": 1200, "apr": 7.5, "minimum_payment": 25}
   ]
 }
 ```
 
 ### Request fields
 
-- `user_id` – Owning user identifier.
-- `user_group_id` – User group identifier. Validated with [ValidatesUserGroupTrait](../app/Support/Http/Api/ValidatesUserGroupTrait.php) to ensure the authenticated user belongs to the group, preventing cross-group data exposure.
+- `user_id` – Owning user identifier (UUID).
+- `group_id` – User group identifier (UUID). Validated with [ValidatesUserGroupTrait](../app/Support/Http/Api/ValidatesUserGroupTrait.php) to ensure the authenticated user belongs to the group, preventing cross-group data exposure.
 - `monthly_budget` – Amount available each month for debt repayment.
 - `max_options` – Maximum number of strategies to return.
 - `accounts` – Array of debts to simulate. Each account contains:
-  - `id` – Unique account identifier.
+  - `account_id` – Unique account identifier.
   - `balance` – Current outstanding balance.
-  - `rate` – Annual percentage rate (APR).
+  - `apr` – Annual percentage rate.
+  - `minimum_payment` – Minimum amount due each month.
 
 ## Response
 
 ```json
 {
-  "data": [
-    {
-      "strategy": "avalanche",
-      "order": [10, 11],
-      "metrics": {
-        "months": 34,
-        "interest": 650.23
+  "data": {
+    "proposed_actions": [
+      {
+        "rank": 1,
+        "is_optimal": true,
+        "plan": {
+          "strategy": "avalanche",
+          "schedule": [
+            {
+              "month": 1,
+              "payments": {"10": 500, "11": 0},
+              "balances": {"10": 4000, "11": 1200},
+              "interest": 60,
+              "payment": 500,
+              "cash_flow": 0
+            }
+          ],
+          "monthly_cash_flow": [
+            {"month": 1, "cash_flow": 0}
+          ]
+        },
+        "metrics": {
+          "interest_saved": 61.88,
+          "time_to_payoff_months": 34
+        },
+        "cost_of_deviation": {
+          "amount": {"value": 0, "currency": "USD"},
+          "time": {"value": 0, "unit": "months"}
+        },
+        "meta": {
+          "ranking_heuristic": "interest_then_months"
+        }
       },
-      "rank": 1,
-      "deviation_cost": 0
-    },
-    {
-      "strategy": "snowball",
-      "order": [11, 10],
-      "metrics": {
-        "months": 36,
-        "interest": 712.11
-      },
-      "rank": 2,
-      "deviation_cost": 61.88
-    }
-  ]
+      {
+        "rank": 2,
+        "is_optimal": false,
+        "plan": {
+          "strategy": "snowball",
+          "schedule": [
+            {
+              "month": 1,
+              "payments": {"10": 475, "11": 25},
+              "balances": {"10": 4025, "11": 1175},
+              "interest": 57.19,
+              "payment": 500,
+              "cash_flow": 0
+            }
+          ],
+          "monthly_cash_flow": [
+            {"month": 1, "cash_flow": 0}
+          ]
+        },
+        "metrics": {
+          "interest_saved": 0,
+          "time_to_payoff_months": 36
+        },
+        "cost_of_deviation": {
+          "amount": {"value": 61.88, "currency": "USD"},
+          "time": {"value": 2, "unit": "months"}
+        },
+        "meta": {
+          "ranking_heuristic": "interest_then_months"
+        }
+      }
+    ]
+  },
+  "meta": {
+    "analysis_id": "b4383ee0-1e6b-4b4e-8f4e-01fb9c93b5b4",
+    "ranking_heuristic": "interest_then_months"
+  }
 }
 ```
 
 ### Response fields
 
-- `strategy` – Name of the heuristic applied (`avalanche` or `snowball`).
-- `order` – Account IDs in the payoff order.
-- `metrics` – Aggregated plan results.
-  - `months` – Number of months to clear all debts.
-  - `interest` – Total interest paid in the plan.
-- `rank` – Position of the plan when sorted by total interest (1 is best).
-- `deviation_cost` – Extra interest paid compared to the top-ranked plan.
+- `analysis_id` – Identifier for this simulation run.
+- `proposed_actions` – Array of ranked payoff plans:
+  - `rank` – Position of the plan when sorted by total interest (1 is best).
+  - `is_optimal` – Indicates whether the plan is the top-ranked option.
+  - `plan` – Detailed strategy output:
+    - `strategy` – Name of the heuristic applied (`avalanche` or `snowball`).
+    - `schedule` – Monthly breakdown of payments, balances, interest and cash flow.
+    - `monthly_cash_flow` – Remaining budget for each month.
+  - `metrics` – Aggregated plan results:
+    - `interest_saved` – Interest saved compared to the worst plan.
+    - `time_to_payoff_months` – Number of months to clear all debts.
+  - `cost_of_deviation` – Extra cost versus the optimal plan:
+    - `amount` – Additional interest with `value` and `currency`.
+    - `time` – Additional duration with `value` and `unit`.
 
 ## Heuristics
 
@@ -80,5 +136,5 @@ Two heuristics are supported:
 
 ## Ranking and Deviation
 
-Plans are sorted by total interest and assigned a `rank`. The `deviation_cost` represents the difference in interest between a plan and the cheapest option, helping users quantify the trade-off when selecting a less optimal strategy.
+Plans are sorted by total interest and assigned a `rank`. The `cost_of_deviation` object captures the additional interest and time a plan requires compared to the optimal strategy, helping users quantify trade-offs when selecting a less optimal option.
 
