@@ -28,6 +28,9 @@ namespace FireflyIII\Api\V1\Requests\Simulations;
 use FireflyIII\Support\Request\ChecksLogin;
 use FireflyIII\Support\Request\ConvertsDataTypes;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Contracts\Validation\Validator;
+use FireflyIII\Repositories\Account\AccountRepositoryInterface;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Class DebtRequest
@@ -72,5 +75,37 @@ class DebtRequest extends FormRequest
             'monthly_budget'               => 'required|numeric|min:0',
             'max_options'                  => 'required|integer|min:1',
         ];
+    }
+
+    /**
+     * Configure the validator instance with special rules after the basic validation rules.
+     */
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(
+            function (Validator $validator): void {
+                $data = $validator->getData();
+                if (!array_key_exists('accounts', $data) || !is_array($data['accounts'])) {
+                    return;
+                }
+
+                /** @var AccountRepositoryInterface $repository */
+                $repository = app(AccountRepositoryInterface::class);
+                $repository->setUser(auth()->user());
+
+                foreach ($data['accounts'] as $index => $array) {
+                    $accountId = (int) ($array['account_id'] ?? 0);
+                    if (null === $repository->find($accountId)) {
+                        $validator->errors()->add(
+                            sprintf('accounts.%d.account_id', $index),
+                            trans('validation.belongs_user_or_user_group')
+                        );
+                    }
+                }
+            }
+        );
+        if ($validator->fails()) {
+            Log::channel('audit')->error(sprintf('Validation errors in %s', self::class), $validator->errors()->toArray());
+        }
     }
 }
