@@ -197,6 +197,7 @@ class DebtSimulationService
         }
 
         return [
+            'plan'              => $schedule,
             'schedule'          => $schedule,
             'total_interest'    => $totalInterest,
             'months'            => $month,

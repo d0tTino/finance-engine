@@ -56,6 +56,8 @@ final class DebtSimulationTest extends TestCase
 
         self::assertCount(6, $mapped['avalanche']['schedule']);
         self::assertCount(6, $mapped['snowball']['schedule']);
+        self::assertSame($mapped['avalanche']['schedule'], $mapped['avalanche']['plan']);
+        self::assertSame($mapped['snowball']['schedule'], $mapped['snowball']['plan']);
     }
 
     public function testRanksAvalancheAheadOfSnowballWithMetrics(): void
