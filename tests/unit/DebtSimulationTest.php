@@ -35,6 +35,14 @@ final class DebtSimulationTest extends TestCase
 
         self::assertCount(2, $plans);
 
+        foreach ($plans as $plan) {
+            self::assertArrayHasKey('schedule', $plan);
+            self::assertIsArray($plan['schedule']);
+            self::assertArrayHasKey('cost_of_deviation', $plan);
+            self::assertArrayHasKey('currency', $plan['cost_of_deviation']);
+            self::assertArrayHasKey('time_months', $plan['cost_of_deviation']);
+        }
+
         $mapped = [];
         foreach ($plans as $plan) {
             $mapped[$plan['strategy']] = $plan;
@@ -72,6 +80,13 @@ final class DebtSimulationTest extends TestCase
         $budget = 300.0;
 
         $plans = $service->simulate((string) $user->id, '1', $accounts, $budget, 2);
+        foreach ($plans as $plan) {
+            self::assertArrayHasKey('schedule', $plan);
+            self::assertIsArray($plan['schedule']);
+            self::assertArrayHasKey('cost_of_deviation', $plan);
+            self::assertArrayHasKey('currency', $plan['cost_of_deviation']);
+            self::assertArrayHasKey('time_months', $plan['cost_of_deviation']);
+        }
         $mapped = [];
         foreach ($plans as $plan) {
             $mapped[$plan['strategy']] = $plan;

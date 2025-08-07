@@ -28,7 +28,8 @@ final class DebtSimulationServiceCachingTest extends TestCase
         Cache::flush();
 
         $service  = new DebtSimulationService();
-        $userId   = '1';
+        $userIdA  = '1';
+        $userIdB  = '01';
         $groupId  = '1';
         $accounts = [
             ['id' => 1, 'balance' => 100.0, 'rate' => 5.0],
@@ -36,15 +37,20 @@ final class DebtSimulationServiceCachingTest extends TestCase
         $budget     = 50.0;
         $maxOptions = 2;
 
-        $service->simulate($userId, $groupId, $accounts, $budget, $maxOptions);
+        $service->simulate($userIdA, $groupId, $accounts, $budget, $maxOptions);
 
-        $hash     = hash('sha256', serialize([$accounts, $budget, $maxOptions]));
-        $cacheKey = sprintf('u:%s:g:%s:debt-sim-%s', $userId, $groupId, $hash);
+        $hash       = hash('sha256', serialize([$accounts, $budget, $maxOptions]));
+        $cacheKeyA  = sprintf('u:%s:g:%s:debt-sim-%s', $userIdA, $groupId, $hash);
+        self::assertTrue(Cache::has($cacheKeyA));
 
-        self::assertTrue(Cache::has($cacheKey));
+        $service->simulate($userIdB, $groupId, $accounts, $budget, $maxOptions);
+        $cacheKeyB = sprintf('u:%s:g:%s:debt-sim-%s', $userIdB, $groupId, $hash);
+        self::assertTrue(Cache::has($cacheKeyB));
+        self::assertNotEquals($cacheKeyA, $cacheKeyB);
 
-        UserScopedCache::flush($userId, $groupId);
+        UserScopedCache::flush($userIdA, $groupId);
 
-        self::assertFalse(Cache::has($cacheKey));
+        self::assertFalse(Cache::has($cacheKeyA));
+        self::assertTrue(Cache::has($cacheKeyB));
     }
 }
