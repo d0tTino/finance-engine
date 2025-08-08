@@ -80,39 +80,35 @@ final class DebtSimulationApiTest extends IntegrationTestCase
 
         $response1  = $this->postJson('/api/v1/simulations/debt', $payload1)->assertOk();
         $response1b = $this->postJson('/api/v1/simulations/debt', $payload1)->assertOk();
-        self::assertSame($response1->json('data.proposed_actions'), $response1b->json('data.proposed_actions'));
+        self::assertSame($response1->json('proposed_actions'), $response1b->json('proposed_actions'));
 
         $response1->assertJsonStructure([
-            'data' => [
-                'proposed_actions' => [
-                    [
-                        'rank',
-                        'is_optimal',
-                        'plan' => [
-                            'strategy',
-                            'schedule',
-                            'monthly_cash_flow',
-                        ],
-                        'metrics' => [
-                            'interest_saved',
-                            'time_to_payoff_months',
-                        ],
-                        'cost_of_deviation' => [
-                            'amount' => ['value', 'currency'],
-                            'time'   => ['value', 'unit'],
-                        ],
-                        'meta' => ['ranking_heuristic'],
+            'analysis_id',
+            'proposed_actions' => [
+                [
+                    'rank',
+                    'is_optimal',
+                    'plan' => [
+                        'strategy',
+                        'schedule',
                     ],
+                    'metrics' => [
+                        'interest_saved',
+                        'time_to_payoff_months',
+                        'total_interest_paid',
+                        'monthly_cash_flow',
+                    ],
+                    'cost_of_deviation' => ['currency', 'time_months'],
+                    'meta' => ['ranking_heuristic'],
                 ],
             ],
-            'meta' => ['analysis_id', 'ranking_heuristic'],
         ]);
-        self::assertTrue(Str::isUuid($response1->json('meta.analysis_id')));
-        self::assertNotEmpty($response1->json('data.proposed_actions.0.plan.schedule'));
-        self::assertArrayHasKey('cost_of_deviation', $response1->json('data.proposed_actions.0'));
+        self::assertTrue(Str::isUuid($response1->json('analysis_id')));
+        self::assertNotEmpty($response1->json('proposed_actions.0.plan.schedule'));
+        self::assertArrayHasKey('cost_of_deviation', $response1->json('proposed_actions.0'));
         self::assertArrayHasKey(
             (string) $account1->id,
-            $response1->json('data.proposed_actions.0.plan.schedule.0.payments')
+            $response1->json('proposed_actions.0.plan.schedule.0.payments')
         );
 
         $user2 = User::create(['email' => 'user2@example.com', 'password' => 'secret']);
@@ -162,7 +158,7 @@ final class DebtSimulationApiTest extends IntegrationTestCase
 
         $response2  = $this->postJson('/api/v1/simulations/debt', $payload2)->assertOk();
         $response2b = $this->postJson('/api/v1/simulations/debt', $payload2)->assertOk();
-        self::assertSame($response2->json('data.proposed_actions'), $response2b->json('data.proposed_actions'));
+        self::assertSame($response2->json('proposed_actions'), $response2b->json('proposed_actions'));
     }
 
     public function testUuidValidationAndNullableGroupId(): void

@@ -37,78 +37,73 @@ The debt simulation endpoint evaluates multiple payoff strategies and returns ra
 
 ```json
 {
-  "data": {
-    "proposed_actions": [
-      {
-        "rank": 1,
-        "is_optimal": true,
-        "plan": {
-          "strategy": "avalanche",
-          "schedule": [
-            {
-              "month": 1,
-              "payments": {"10": 500, "11": 0},
-              "balances": {"10": 4000, "11": 1200},
-              "interest": 60,
-              "payment": 500,
-              "cash_flow": 0
-            }
-          ],
-          "monthly_cash_flow": [
-            {"month": 1, "cash_flow": 0}
-          ]
-        },
-        "metrics": {
-          "interest_saved": 61.88,
-          "time_to_payoff_months": 34,
-          "total_interest_paid": 516.09
-        },
-        "cost_of_deviation": {
-          "amount": {"value": 0, "currency": "USD"},
-          "time": {"value": 0, "unit": "months"}
-        },
-        "meta": {
-          "ranking_heuristic": "interest_then_months"
-        }
+  "analysis_id": "b4383ee0-1e6b-4b4e-8f4e-01fb9c93b5b4",
+  "proposed_actions": [
+    {
+      "rank": 1,
+      "is_optimal": true,
+      "plan": {
+        "strategy": "avalanche",
+        "schedule": [
+          {
+            "month": 1,
+            "payments": {"10": 500, "11": 0},
+            "balances": {"10": 4000, "11": 1200},
+            "interest": 60,
+            "payment": 500,
+            "cash_flow": 0
+          }
+        ]
       },
-      {
-        "rank": 2,
-        "is_optimal": false,
-        "plan": {
-          "strategy": "snowball",
-          "schedule": [
-            {
-              "month": 1,
-              "payments": {"10": 475, "11": 25},
-              "balances": {"10": 4025, "11": 1175},
-              "interest": 57.19,
-              "payment": 500,
-              "cash_flow": 0
-            }
-          ],
-          "monthly_cash_flow": [
-            {"month": 1, "cash_flow": 0}
-          ]
-        },
-        "metrics": {
-          "interest_saved": 0,
-          "time_to_payoff_months": 36,
-          "total_interest_paid": 577.97
-        },
-        "cost_of_deviation": {
-          "amount": {"value": 61.88, "currency": "USD"},
-          "time": {"value": 2, "unit": "months"}
-        },
-        "meta": {
-          "ranking_heuristic": "interest_then_months"
-        }
+      "metrics": {
+        "interest_saved": 61.88,
+        "time_to_payoff_months": 34,
+        "total_interest_paid": 516.09,
+        "monthly_cash_flow": [
+          {"month": 1, "cash_flow": 0}
+        ]
+      },
+      "cost_of_deviation": {
+        "currency": 0,
+        "time_months": 0
+      },
+      "meta": {
+        "ranking_heuristic": "interest_then_months"
       }
-    ]
-  },
-  "meta": {
-    "analysis_id": "b4383ee0-1e6b-4b4e-8f4e-01fb9c93b5b4",
-    "ranking_heuristic": "interest_then_months"
-  }
+    },
+    {
+      "rank": 2,
+      "is_optimal": false,
+      "plan": {
+        "strategy": "snowball",
+        "schedule": [
+          {
+            "month": 1,
+            "payments": {"10": 475, "11": 25},
+            "balances": {"10": 4025, "11": 1175},
+            "interest": 57.19,
+            "payment": 500,
+            "cash_flow": 0
+          }
+        ]
+      },
+      "metrics": {
+        "interest_saved": 0,
+        "time_to_payoff_months": 36,
+        "total_interest_paid": 577.97,
+        "monthly_cash_flow": [
+          {"month": 1, "cash_flow": 0}
+        ]
+      },
+      "cost_of_deviation": {
+        "currency": 61.88,
+        "time_months": 2
+      },
+      "meta": {
+        "ranking_heuristic": "interest_then_months"
+      }
+    }
+  ]
 }
 ```
 
@@ -121,14 +116,14 @@ The debt simulation endpoint evaluates multiple payoff strategies and returns ra
   - `plan` – Detailed strategy output:
     - `strategy` – Name of the heuristic applied (`avalanche` or `snowball`).
     - `schedule` – Monthly breakdown of payments, balances, interest and cash flow.
-    - `monthly_cash_flow` – Remaining budget for each month.
   - `metrics` – Aggregated plan results:
     - `interest_saved` – Interest saved compared to the worst plan.
     - `time_to_payoff_months` – Number of months to clear all debts.
     - `total_interest_paid` – Total interest paid over the lifetime of the plan.
+    - `monthly_cash_flow` – Remaining budget for each month.
   - `cost_of_deviation` – Extra cost versus the optimal plan:
-    - `amount` – Additional interest with `value` and `currency`.
-    - `time` – Additional duration with `value` and `unit`.
+    - `currency` – Additional interest compared to the optimal plan.
+    - `time_months` – Additional duration compared to the optimal plan in months.
 
 ## Heuristics
 
