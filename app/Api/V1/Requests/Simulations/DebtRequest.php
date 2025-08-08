@@ -27,8 +27,10 @@ namespace FireflyIII\Api\V1\Requests\Simulations;
 
 use FireflyIII\Support\Request\ChecksLogin;
 use FireflyIII\Support\Request\ConvertsDataTypes;
+use FireflyIII\Models\Account;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Validation\Validator as LaravelValidator;
 use FireflyIII\Repositories\Account\AccountRepositoryInterface;
 use Illuminate\Support\Facades\Log;
 
@@ -49,10 +51,15 @@ class DebtRequest extends FormRequest
      */
     public function getData(): array
     {
+        $accounts = $this->get('accounts', []);
+        foreach ($accounts as $index => $account) {
+            $accounts[$index]['account_id'] = $this->convertString(sprintf('accounts.%d.account_id', $index));
+        }
+
         return [
             'user_id'        => $this->convertString('user_id'),
             'group_id'       => $this->filled('group_id') ? $this->convertString('group_id') : null,
-            'accounts'       => $this->get('accounts', []),
+            'accounts'       => $accounts,
             'monthly_budget' => $this->convertFloat('monthly_budget'),
             'max_options'    => $this->convertInteger('max_options'),
         ];
@@ -68,7 +75,7 @@ class DebtRequest extends FormRequest
             'group_id'                     => 'nullable|uuid',
             'accounts'                     => 'required|array|min:1',
             'accounts.*'                   => 'required|array',
-            'accounts.*.account_id'        => 'required|integer',
+            'accounts.*.account_id'        => 'required|uuid',
             'accounts.*.balance'           => 'required|numeric|min:0',
             'accounts.*.apr'               => 'required|numeric|min:0',
             'accounts.*.minimum_payment'   => 'required|numeric|min:0',
@@ -83,8 +90,13 @@ class DebtRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(
-            function (Validator $validator): void {
+            function (LaravelValidator $validator): void {
                 $data = $validator->getData();
+
+                if ((string) request('user_id') !== (string) auth()->id()) {
+                    $validator->errors()->add('user_id', trans('validation.in'));
+                }
+
                 if (!array_key_exists('accounts', $data) || !is_array($data['accounts'])) {
                     return;
                 }
@@ -94,7 +106,10 @@ class DebtRequest extends FormRequest
                 $repository->setUser(auth()->user());
 
                 foreach ($data['accounts'] as $index => $array) {
-                    $accountId = (int) ($array['account_id'] ?? 0);
+                    $uuid    = (string) ($array['account_id'] ?? '');
+                    $account = Account::where('uuid', $uuid)->first();
+                    $accountId = (int) (($account instanceof Account) ? $account->id : 0);
+
                     if (null === $repository->find($accountId)) {
                         $validator->errors()->add(
                             sprintf('accounts.%d.account_id', $index),
