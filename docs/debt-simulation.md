@@ -60,7 +60,8 @@ The debt simulation endpoint evaluates multiple payoff strategies and returns ra
         },
         "metrics": {
           "interest_saved": 61.88,
-          "time_to_payoff_months": 34
+          "time_to_payoff_months": 34,
+          "total_interest_paid": 516.09
         },
         "cost_of_deviation": {
           "amount": {"value": 0, "currency": "USD"},
@@ -91,7 +92,8 @@ The debt simulation endpoint evaluates multiple payoff strategies and returns ra
         },
         "metrics": {
           "interest_saved": 0,
-          "time_to_payoff_months": 36
+          "time_to_payoff_months": 36,
+          "total_interest_paid": 577.97
         },
         "cost_of_deviation": {
           "amount": {"value": 61.88, "currency": "USD"},
@@ -123,6 +125,7 @@ The debt simulation endpoint evaluates multiple payoff strategies and returns ra
   - `metrics` – Aggregated plan results:
     - `interest_saved` – Interest saved compared to the worst plan.
     - `time_to_payoff_months` – Number of months to clear all debts.
+    - `total_interest_paid` – Total interest paid over the lifetime of the plan.
   - `cost_of_deviation` – Extra cost versus the optimal plan:
     - `amount` – Additional interest with `value` and `currency`.
     - `time` – Additional duration with `value` and `unit`.

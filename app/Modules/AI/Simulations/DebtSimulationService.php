@@ -93,6 +93,7 @@ class DebtSimulationService
                 foreach ($plans as $i => &$plan) {
                     $plan['rank']                  = $i + 1;
                     $plan['is_optimal']            = 0 === $i;
+                    $plan['total_interest']        = (float) $plan['total_interest'];
                     $plan['interest_saved']        = $worstInterest - $plan['total_interest'];
                     $plan['time_to_payoff_months'] = $plan['months'];
                     $plan['cost_of_deviation']     = [
@@ -101,6 +102,7 @@ class DebtSimulationService
                     ];
                     $plan['ranking_heuristic']     = self::RANKING_HEURISTIC;
                 }
+                unset($plan);
 
                 return $plans;
             }

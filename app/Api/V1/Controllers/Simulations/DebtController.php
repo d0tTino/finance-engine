@@ -77,6 +77,7 @@ class DebtController extends Controller
                     'metrics' => [
                         'interest_saved'        => (float) $plan['interest_saved'],
                         'time_to_payoff_months' => (int) $plan['time_to_payoff_months'],
+                        'total_interest_paid'   => (float) $plan['total_interest'],
                     ],
                     'cost_of_deviation' => [
                         'amount' => [
