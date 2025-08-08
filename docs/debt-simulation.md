@@ -15,29 +15,44 @@ The debt simulation endpoint evaluates multiple payoff strategies and returns ra
   "monthly_budget": 500,
   "max_options": 2,
   "accounts": [
-    {"account_id": 10, "balance": 4500, "apr": 15.99, "minimum_payment": 75},
-    {"account_id": 11, "balance": 1200, "apr": 7.5, "minimum_payment": 25}
+    {
+      "account_id": "af13c6c4-1d05-4d26-8b16-ef3d988c1f02",
+      "balance": 4500,
+      "apr": 15.99,
+      "minimum_payment": 75
+    },
+    {
+      "account_id": "b2a1a148-9b91-455c-8964-fba303b3f7ca",
+      "balance": 1200,
+      "apr": 7.5,
+      "minimum_payment": 25
+    }
   ]
 }
 ```
 
 ### Request fields
 
-- `user_id` – Owning user identifier (UUID).
+- `user_id` – Owning user identifier (UUID). Must match the authenticated user; mismatches are rejected.
 - `group_id` – User group identifier (UUID). Validated with [ValidatesUserGroupTrait](../app/Support/Http/Api/ValidatesUserGroupTrait.php) to ensure the authenticated user belongs to the group, preventing cross-group data exposure.
 - `monthly_budget` – Amount available each month for debt repayment.
 - `max_options` – Maximum number of strategies to return.
 - `accounts` – Array of debts to simulate. Each account contains:
-  - `account_id` – Unique account identifier.
+  - `account_id` – Unique account identifier (UUID).
   - `balance` – Current outstanding balance.
-  - `apr` – Annual percentage rate.
+  - `apr` – Annual percentage rate in percent (e.g. `7.5` for 7.5%).
   - `minimum_payment` – Minimum amount due each month.
+
+> **APR handling:** Values must be provided as percentages. The service converts APR to monthly interest internally.
+
+> **User ID verification:** The endpoint validates that every account belongs to the provided `user_id` or `group_id` to prevent cross-user data access.
 
 ## Response
 
 ```json
 {
   "analysis_id": "b4383ee0-1e6b-4b4e-8f4e-01fb9c93b5b4",
+
   "proposed_actions": [
     {
       "rank": 1,
@@ -49,10 +64,12 @@ The debt simulation endpoint evaluates multiple payoff strategies and returns ra
             "month": 1,
             "payments": {"10": 500, "11": 0},
             "balances": {"10": 4000, "11": 1200},
+
             "interest": 60,
             "payment": 500,
             "cash_flow": 0
           }
+
         ]
       },
       "metrics": {
@@ -69,6 +86,7 @@ The debt simulation endpoint evaluates multiple payoff strategies and returns ra
       },
       "meta": {
         "ranking_heuristic": "interest_then_months"
+
       }
     },
     {
@@ -81,10 +99,12 @@ The debt simulation endpoint evaluates multiple payoff strategies and returns ra
             "month": 1,
             "payments": {"10": 475, "11": 25},
             "balances": {"10": 4025, "11": 1175},
+
             "interest": 57.19,
             "payment": 500,
             "cash_flow": 0
           }
+
         ]
       },
       "metrics": {
@@ -101,6 +121,7 @@ The debt simulation endpoint evaluates multiple payoff strategies and returns ra
       },
       "meta": {
         "ranking_heuristic": "interest_then_months"
+
       }
     }
   ]
@@ -110,6 +131,7 @@ The debt simulation endpoint evaluates multiple payoff strategies and returns ra
 ### Response fields
 
 - `analysis_id` – Identifier for this simulation run.
+- `ranking_heuristic` – Ranking algorithm applied to the plans.
 - `proposed_actions` – Array of ranked payoff plans:
   - `rank` – Position of the plan when sorted by total interest (1 is best).
   - `is_optimal` – Indicates whether the plan is the top-ranked option.
