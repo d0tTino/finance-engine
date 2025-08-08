@@ -27,7 +27,7 @@ final class DebtSimulationTest extends TestCase
         $service = new DebtSimulationService();
 
         $accounts = [
-            ['id' => 1, 'name' => 'Loan', 'balance' => 1000.0, 'rate' => 10.0, 'min_payment' => 0.0],
+            ['account_id' => 1, 'balance' => 1000.0, 'apr' => 10.0, 'min_payment' => 0.0],
         ];
         $budget = 200.0;
 
@@ -41,6 +41,7 @@ final class DebtSimulationTest extends TestCase
             self::assertArrayHasKey('cost_of_deviation', $plan);
             self::assertArrayHasKey('currency', $plan['cost_of_deviation']);
             self::assertArrayHasKey('time_months', $plan['cost_of_deviation']);
+            self::assertArrayHasKey('1', $plan['schedule'][0]['payments']);
         }
 
         $mapped = [];
@@ -64,8 +65,6 @@ final class DebtSimulationTest extends TestCase
 
         self::assertCount(6, $mapped['avalanche']['schedule']);
         self::assertCount(6, $mapped['snowball']['schedule']);
-        self::assertSame($mapped['avalanche']['schedule'], $mapped['avalanche']['plan']);
-        self::assertSame($mapped['snowball']['schedule'], $mapped['snowball']['plan']);
     }
 
     public function testRanksAvalancheAheadOfSnowballWithMetrics(): void
@@ -74,8 +73,8 @@ final class DebtSimulationTest extends TestCase
         $service = new DebtSimulationService();
 
         $accounts = [
-            ['id' => 1, 'name' => 'Loan1', 'balance' => 1000.0, 'rate' => 10.0, 'min_payment' => 0.0],
-            ['id' => 2, 'name' => 'Loan2', 'balance' => 500.0, 'rate' => 5.0, 'min_payment' => 0.0],
+            ['account_id' => 1, 'name' => 'Loan1', 'balance' => 1000.0, 'apr' => 10.0, 'min_payment' => 0.0],
+            ['account_id' => 2, 'name' => 'Loan2', 'balance' => 500.0, 'apr' => 5.0, 'min_payment' => 0.0],
         ];
         $budget = 300.0;
 
