@@ -46,8 +46,8 @@ class DebtSimulationService
      * @param string      $userId     The owning user identifier.
      * @param string|null $groupId    The user group identifier.
      * @param array $accounts   Array of accounts. Each entry must contain
-     *                          `id`, `balance` and `rate` (APR percentage) and
-     *                          may contain `name` and `min_payment`.
+     *                          `account_id`, `balance` and `apr` (APR percentage)
+     *                          and may contain `id`, `name` and `min_payment`.
      * @param float $budget     Total monthly amount available for debt payments.
      * @param int   $maxOptions Maximum number of plans to return.
      *
@@ -66,9 +66,9 @@ class DebtSimulationService
                 // Normalize account data for simulation service.
                 $debts = array_map(static function (array $account): array {
                     return [
-                        'name'        => (string) ($account['name'] ?? $account['id']),
+                        'name'        => (string) ($account['name'] ?? $account['id'] ?? $account['account_id']),
                         'balance'     => (float) $account['balance'],
-                        'rate'        => (float) $account['rate'] / 100,
+                        'rate'        => (float) $account['apr'] / 100,
                         'min_payment' => (float) ($account['min_payment'] ?? $account['minimum_payment'] ?? 0.0),
                     ];
                 }, $accounts);
@@ -199,7 +199,6 @@ class DebtSimulationService
         }
 
         return [
-            'plan'              => $schedule,
             'schedule'          => $schedule,
             'total_interest'    => $totalInterest,
             'months'            => $month,

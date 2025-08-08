@@ -55,19 +55,15 @@ final class DebtSimulationApiTest extends IntegrationTestCase
 
         $accounts1 = [
             [
-                'id'               => $account1->id,
                 'account_id'       => $account1->id,
                 'balance'          => 100.0,
-                'rate'             => 5.0,
                 'apr'              => 5.0,
                 'min_payment'      => 0.0,
                 'minimum_payment'  => 0.0,
             ],
             [
-                'id'               => $account2->id,
                 'account_id'       => $account2->id,
                 'balance'          => 200.0,
-                'rate'             => 3.0,
                 'apr'              => 3.0,
                 'min_payment'      => 0.0,
                 'minimum_payment'  => 0.0,
@@ -114,6 +110,10 @@ final class DebtSimulationApiTest extends IntegrationTestCase
         self::assertTrue(Str::isUuid($response1->json('meta.analysis_id')));
         self::assertNotEmpty($response1->json('data.proposed_actions.0.plan.schedule'));
         self::assertArrayHasKey('cost_of_deviation', $response1->json('data.proposed_actions.0'));
+        self::assertArrayHasKey(
+            (string) $account1->id,
+            $response1->json('data.proposed_actions.0.plan.schedule.0.payments')
+        );
 
         $user2 = User::create(['email' => 'user2@example.com', 'password' => 'secret']);
         CreatesGroupMemberships::createGroupMembership($user2);
@@ -137,19 +137,15 @@ final class DebtSimulationApiTest extends IntegrationTestCase
 
         $accounts2 = [
             [
-                'id'               => $account3->id,
                 'account_id'       => $account3->id,
                 'balance'          => 100.0,
-                'rate'             => 5.0,
                 'apr'              => 5.0,
                 'min_payment'      => 0.0,
                 'minimum_payment'  => 0.0,
             ],
             [
-                'id'               => $account4->id,
                 'account_id'       => $account4->id,
                 'balance'          => 200.0,
-                'rate'             => 3.0,
                 'apr'              => 3.0,
                 'min_payment'      => 0.0,
                 'minimum_payment'  => 0.0,
@@ -173,10 +169,8 @@ final class DebtSimulationApiTest extends IntegrationTestCase
     {
         $accounts = [
             [
-                'id'               => 1,
                 'account_id'       => 1,
                 'balance'          => 100.0,
-                'rate'             => 5.0,
                 'apr'              => 5.0,
                 'min_payment'      => 0.0,
                 'minimum_payment'  => 0.0,
@@ -233,10 +227,8 @@ final class DebtSimulationApiTest extends IntegrationTestCase
             'user_id'        => '1f111111-1111-1111-1111-111111111111',
             'group_id'       => null,
             'accounts'       => [[
-                'id'               => $foreign->id,
                 'account_id'       => $foreign->id,
                 'balance'          => 100.0,
-                'rate'             => 5.0,
                 'apr'              => 5.0,
                 'min_payment'      => 0.0,
                 'minimum_payment'  => 0.0,
