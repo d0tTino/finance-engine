@@ -108,6 +108,11 @@ final class DebtSimulationTest extends TestCase
         self::assertEquals(6, $mapped['avalanche']['time_to_payoff_months']);
         self::assertEquals(6, $mapped['snowball']['time_to_payoff_months']);
 
-        self::assertSame(DebtSimulationService::RANKING_HEURISTIC, $mapped['avalanche']['ranking_heuristic']);
+        self::assertSame(
+            DebtSimulationService::RANKING_HEURISTIC,
+            $mapped['avalanche']['meta']['ranking_heuristic']
+        );
+        self::assertIsString($mapped['avalanche']['meta']['ranking_reason']);
+        self::assertIsString($mapped['avalanche']['meta']['tradeoffs']);
     }
 }

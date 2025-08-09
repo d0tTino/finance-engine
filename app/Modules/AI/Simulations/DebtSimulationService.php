@@ -100,7 +100,20 @@ class DebtSimulationService
                         'currency'    => $plan['total_interest'] - $bestInterest,
                         'time_months' => $plan['months'] - $bestMonths,
                     ];
-                    $plan['ranking_heuristic']     = self::RANKING_HEURISTIC;
+
+                    $tradeoffString = $plan['is_optimal']
+                        ? 'no tradeoffs'
+                        : sprintf(
+                            '%.2f extra interest and %d more months',
+                            $plan['cost_of_deviation']['currency'],
+                            $plan['cost_of_deviation']['time_months']
+                        );
+
+                    $plan['meta'] = [
+                        'ranking_heuristic' => self::RANKING_HEURISTIC,
+                        'ranking_reason'    => $plan['is_optimal'] ? 'minimizes interest' : 'higher cost or duration',
+                        'tradeoffs'         => $tradeoffString,
+                    ];
                 }
                 unset($plan);
 
