@@ -110,4 +110,41 @@ final class DebtSimulationTest extends TestCase
 
         self::assertSame(DebtSimulationService::RANKING_HEURISTIC, $mapped['avalanche']['ranking_heuristic']);
     }
+
+    public function testMetaContainsRankingReasonAndTradeoffs(): void
+    {
+        $user    = $this->createAuthenticatedUser();
+        $service = new DebtSimulationService();
+
+        $accounts = [
+            ['account_id' => 1, 'name' => 'Loan1', 'balance' => 1000.0, 'apr' => 10.0, 'min_payment' => 0.0],
+            ['account_id' => 2, 'name' => 'Loan2', 'balance' => 500.0, 'apr' => 5.0, 'min_payment' => 0.0],
+        ];
+        $budget = 300.0;
+
+        $plans = $service->simulate((string) $user->id, '1', $accounts, $budget, 2);
+
+        $actions = array_map(
+            static function (array $plan): array {
+                return [
+                    'cost_of_deviation' => $plan['cost_of_deviation'],
+                    'meta'              => [
+                        'ranking_heuristic' => $plan['ranking_heuristic'],
+                        'ranking_reason'    => $plan['ranking_reason'] ?? $plan['ranking_heuristic'],
+                        'tradeoffs'         => $plan['tradeoffs'] ?? $plan['cost_of_deviation'],
+                    ],
+                ];
+            },
+            $plans
+        );
+
+        foreach ($actions as $action) {
+            self::assertArrayHasKey('ranking_reason', $action['meta']);
+            self::assertSame(DebtSimulationService::RANKING_HEURISTIC, $action['meta']['ranking_reason']);
+            self::assertArrayHasKey('tradeoffs', $action['meta']);
+            self::assertSame($action['cost_of_deviation'], $action['meta']['tradeoffs']);
+            self::assertArrayHasKey('currency', $action['meta']['tradeoffs']);
+            self::assertArrayHasKey('time_months', $action['meta']['tradeoffs']);
+        }
+    }
 }
