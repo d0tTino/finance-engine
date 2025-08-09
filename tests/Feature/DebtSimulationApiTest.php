@@ -231,4 +231,49 @@ final class DebtSimulationApiTest extends IntegrationTestCase
             ->assertStatus(422)
             ->assertJsonValidationErrors(['accounts.0.account_id']);
     }
+
+    public function testRejectsGroupIdFromDifferentUserGroup(): void
+    {
+        // Configure environment and disable auth middleware
+        Cache::setDefaultDriver('file');
+        putenv('CACHE_DRIVER=file');
+        Cache::flush();
+        $this->withoutMiddleware([Authenticate::class, 'auth:api', 'auth:api,sanctum', EnsureFrontendRequestsAreStateful::class, OpaMiddleware::class]);
+        config(['auth.defaults.guard' => 'web']);
+
+        $user1 = User::create(['email' => 'user1@example.com', 'password' => 'secret']);
+        CreatesGroupMemberships::createGroupMembership($user1);
+        $user1->refresh();
+        $this->be($user1);
+
+        $user2 = User::create(['email' => 'user2@example.com', 'password' => 'secret']);
+        CreatesGroupMemberships::createGroupMembership($user2);
+        $user2->refresh();
+
+        $type     = AccountType::where('type', AccountTypeEnum::DEBT->value)->first();
+        $account1 = Account::create([
+            'user_id'         => $user1->id,
+            'user_group_id'   => $user1->user_group_id,
+            'account_type_id' => $type->id,
+            'name'            => 'Debt 1',
+            'active'          => true,
+        ]);
+
+        $payload = [
+            'user_id'        => (string) $user1->id,
+            'group_id'       => (string) $user2->user_group_id,
+            'accounts'       => [[
+                'account_id'       => $account1->id,
+                'balance'          => 100.0,
+                'apr'              => 5.0,
+                'minimum_payment'  => 0.0,
+            ]],
+            'monthly_budget' => 50.0,
+            'max_options'    => 2,
+        ];
+
+        $this->postJson('/api/v1/simulations/debt', $payload)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['group_id']);
+    }
 }
