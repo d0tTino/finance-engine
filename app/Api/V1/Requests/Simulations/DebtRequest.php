@@ -27,6 +27,7 @@ namespace FireflyIII\Api\V1\Requests\Simulations;
 
 use FireflyIII\Support\Request\ChecksLogin;
 use FireflyIII\Support\Request\ConvertsDataTypes;
+use FireflyIII\Support\Http\Api\ValidatesUserGroupTrait;
 use FireflyIII\Models\Account;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Contracts\Validation\Validator;
@@ -43,6 +44,7 @@ class DebtRequest extends FormRequest
 {
     use ChecksLogin;
     use ConvertsDataTypes;
+    use ValidatesUserGroupTrait;
 
     /**
      * Extract validated data with proper types.
@@ -95,6 +97,18 @@ class DebtRequest extends FormRequest
 
                 if ((string) request('user_id') !== (string) auth()->id()) {
                     $validator->errors()->add('user_id', trans('validation.in'));
+                }
+
+                if (array_key_exists('group_id', $data) && null !== $data['group_id']) {
+                    $groupId     = (string) $data['group_id'];
+                    $membership  = auth()->user()->groupMemberships->first(
+                        static fn ($membership) => (string) $membership->userGroup->uuid === $groupId
+                    );
+                    if (null === $membership) {
+                        $validator->errors()->add('group_id', trans('validation.belongs_user_or_user_group'));
+                    } else {
+                        $this->userGroup = $membership->userGroup;
+                    }
                 }
 
                 if (!array_key_exists('accounts', $data) || !is_array($data['accounts'])) {
