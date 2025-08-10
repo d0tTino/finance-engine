@@ -69,6 +69,10 @@ class DebtSimulationService
      */
     public function simulate(string $userId, ?string $groupId, array $accounts, float $budget, int $maxOptions = 2): array
     {
+        if (0 === count($this->strategies)) {
+            return [];
+        }
+
         $hash     = hash('sha256', serialize([$accounts, $budget, $maxOptions]));
         $cacheKey = 'debt-sim-' . $hash;
 
@@ -189,6 +193,8 @@ class DebtSimulationService
             }
             unset($debt);
 
+            $remainingBudget = max($remainingBudget, 0.0);
+
             // Allocate any extra budget to targeted debt(s).
             while ($remainingBudget > 0 && $this->hasBalance($debts)) {
                 $targetKey = $strategy->selectTargetDebt($debts);
@@ -206,7 +212,7 @@ class DebtSimulationService
                 unset($target);
             }
 
-            $totalPayment      = $monthlyBudget - $remainingBudget;
+            $totalPayment      = array_sum($paymentPlan);
             $totalInterest    += $interestThisMonth;
             $cashFlowTimeline[] = ['month' => $month, 'cash_flow' => $remainingBudget];
 
