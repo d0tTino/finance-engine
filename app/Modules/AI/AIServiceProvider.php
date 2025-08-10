@@ -25,6 +25,7 @@ namespace FireflyIII\Modules\AI;
 
 use Illuminate\Support\ServiceProvider;
 use FireflyIII\Modules\AI\Webhooks\FinanceEventService;
+use FireflyIII\Modules\AI\Simulations\DebtSimulationService;
 use Override;
 
 /**
@@ -47,5 +48,14 @@ class AIServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(FinanceEventService::class, fn () => new FinanceEventService());
+
+        $this->app->singleton(DebtSimulationService::class, function ($app) {
+            $strategies = array_map(
+                static fn (string $class) => $app->make($class),
+                config('ai.debt_strategies', [])
+            );
+
+            return new DebtSimulationService($strategies);
+        });
     }
 }
