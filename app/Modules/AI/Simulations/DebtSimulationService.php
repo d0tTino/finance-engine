@@ -25,6 +25,7 @@ declare(strict_types=1);
 
 namespace FireflyIII\Modules\AI\Simulations;
 
+use FireflyIII\Modules\AI\Simulations\Strategies\StrategyInterface;
 use FireflyIII\Support\Cache\UserScopedCache;
 
 /**
@@ -38,7 +39,20 @@ class DebtSimulationService
 {
     public const RANKING_HEURISTIC = 'interest_then_months';
 
-    private const STRATEGIES = ['avalanche', 'snowball'];
+    /** @var StrategyInterface[] */
+    private array $strategies;
+
+    public function __construct(?array $strategies = null)
+    {
+        $configured = $strategies ?? config('ai.debt_simulation_strategies', []);
+        $this->strategies = [];
+        foreach ($configured as $strategyClass) {
+            $instance = app($strategyClass);
+            if ($instance instanceof StrategyInterface) {
+                $this->strategies[] = $instance;
+            }
+        }
+    }
 
     /**
      * Run simulations for all strategies.
@@ -74,9 +88,9 @@ class DebtSimulationService
                 }, $accounts);
 
                 $plans = [];
-                foreach (self::STRATEGIES as $strategy) {
+                foreach ($this->strategies as $strategy) {
                     $plan    = $this->generateSchedule($debts, $budget, $strategy);
-                    $plans[] = array_merge(['strategy' => $strategy], $plan);
+                    $plans[] = array_merge(['strategy' => $strategy->getName()], $plan);
                     if (count($plans) >= $maxOptions) {
                         break;
                     }
@@ -127,11 +141,11 @@ class DebtSimulationService
      *
      * @param array  $debts
      * @param float  $monthlyBudget
-     * @param string $strategy
+     * @param StrategyInterface $strategy
      *
      * @return array<string, mixed>
      */
-    private function generateSchedule(array $debts, float $monthlyBudget, string $strategy): array
+    private function generateSchedule(array $debts, float $monthlyBudget, StrategyInterface $strategy): array
     {
         $debts = array_map(static function (array $debt): array {
             $debt['balance']     = (float) $debt['balance'];
@@ -177,7 +191,7 @@ class DebtSimulationService
 
             // Allocate any extra budget to targeted debt(s).
             while ($remainingBudget > 0 && $this->hasBalance($debts)) {
-                $targetKey = $this->selectTargetDebt($debts, $strategy);
+                $targetKey = $strategy->selectTargetDebt($debts);
                 if (null === $targetKey) {
                     break;
                 }
@@ -233,39 +247,5 @@ class DebtSimulationService
         return false;
     }
 
-    /**
-     * Select the index of the debt that should receive extra payments.
-     */
-    private function selectTargetDebt(array $debts, string $strategy): ?int
-    {
-        $indices     = array_keys($debts);
-        $activeDebts = array_filter($indices, static function ($idx) use ($debts): bool {
-            return $debts[$idx]['balance'] > 0.0;
-        });
-        if ([] === $activeDebts) {
-            return null;
-        }
-        $key = null;
-        if ('avalanche' === $strategy) {
-            $maxRate = -INF;
-            foreach ($activeDebts as $idx) {
-                if ($debts[$idx]['rate'] > $maxRate) {
-                    $maxRate = $debts[$idx]['rate'];
-                    $key     = $idx;
-                }
-            }
-        }
-        if ('snowball' === $strategy) {
-            $minBalance = INF;
-            foreach ($activeDebts as $idx) {
-                if ($debts[$idx]['balance'] < $minBalance) {
-                    $minBalance = $debts[$idx]['balance'];
-                    $key        = $idx;
-                }
-            }
-        }
-
-        return $key;
-    }
 }
 

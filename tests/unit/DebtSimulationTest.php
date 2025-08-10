@@ -31,9 +31,9 @@ final class DebtSimulationTest extends TestCase
         ];
         $budget = 200.0;
 
-        $plans = $service->simulate((string) $user->id, '1', $accounts, $budget, 2);
+        $plans = $service->simulate((string) $user->id, '1', $accounts, $budget, 3);
 
-        self::assertCount(2, $plans);
+        self::assertCount(3, $plans);
 
         foreach ($plans as $plan) {
             self::assertArrayHasKey('schedule', $plan);
@@ -49,6 +49,8 @@ final class DebtSimulationTest extends TestCase
             $mapped[$plan['strategy']] = $plan;
         }
 
+        self::assertArrayHasKey('balanced', $mapped);
+
         self::assertEquals(6, $mapped['avalanche']['time_to_payoff_months']);
         self::assertEquals(6, $mapped['snowball']['time_to_payoff_months']);
 
@@ -57,6 +59,7 @@ final class DebtSimulationTest extends TestCase
 
         self::assertTrue($mapped['avalanche']['is_optimal']);
         self::assertFalse($mapped['snowball']['is_optimal']);
+        self::assertArrayHasKey('rank', $mapped['balanced']);
 
         self::assertEquals(0.0, $mapped['avalanche']['cost_of_deviation']['currency']);
         self::assertEquals(0.0, $mapped['snowball']['cost_of_deviation']['currency']);
@@ -78,7 +81,7 @@ final class DebtSimulationTest extends TestCase
         ];
         $budget = 300.0;
 
-        $plans = $service->simulate((string) $user->id, '1', $accounts, $budget, 2);
+        $plans = $service->simulate((string) $user->id, '1', $accounts, $budget, 3);
         foreach ($plans as $plan) {
             self::assertArrayHasKey('schedule', $plan);
             self::assertIsArray($plan['schedule']);
@@ -91,11 +94,15 @@ final class DebtSimulationTest extends TestCase
             $mapped[$plan['strategy']] = $plan;
         }
 
+        self::assertArrayHasKey('balanced', $mapped);
+
         self::assertEquals(1, $mapped['avalanche']['rank']);
-        self::assertEquals(2, $mapped['snowball']['rank']);
+        self::assertGreaterThan(1, $mapped['snowball']['rank']);
+        self::assertGreaterThan(1, $mapped['balanced']['rank']);
 
         self::assertTrue($mapped['avalanche']['is_optimal']);
         self::assertFalse($mapped['snowball']['is_optimal']);
+        self::assertFalse($mapped['balanced']['is_optimal']);
 
         self::assertEqualsWithDelta(7.0831535569, $mapped['avalanche']['interest_saved'], 0.0001);
         self::assertEqualsWithDelta(0.0, $mapped['snowball']['interest_saved'], 0.0001);
@@ -134,9 +141,9 @@ final class DebtSimulationTest extends TestCase
                 return [
                     'cost_of_deviation' => $plan['cost_of_deviation'],
                     'meta'              => [
-                        'ranking_heuristic' => $plan['ranking_heuristic'],
-                        'ranking_reason'    => $plan['ranking_reason'] ?? $plan['ranking_heuristic'],
-                        'tradeoffs'         => $plan['tradeoffs'] ?? $plan['cost_of_deviation'],
+                        'ranking_heuristic' => $plan['meta']['ranking_heuristic'] ?? '',
+                        'ranking_reason'    => $plan['meta']['ranking_reason'] ?? '',
+                        'tradeoffs'         => $plan['meta']['tradeoffs'] ?? $plan['cost_of_deviation'],
                     ],
                 ];
             },
@@ -145,11 +152,12 @@ final class DebtSimulationTest extends TestCase
 
         foreach ($actions as $action) {
             self::assertArrayHasKey('ranking_reason', $action['meta']);
-            self::assertSame(DebtSimulationService::RANKING_HEURISTIC, $action['meta']['ranking_reason']);
+            self::assertSame(DebtSimulationService::RANKING_HEURISTIC, $action['meta']['ranking_heuristic']);
+            self::assertIsString($action['meta']['ranking_reason']);
             self::assertArrayHasKey('tradeoffs', $action['meta']);
-            self::assertSame($action['cost_of_deviation'], $action['meta']['tradeoffs']);
-            self::assertArrayHasKey('currency', $action['meta']['tradeoffs']);
-            self::assertArrayHasKey('time_months', $action['meta']['tradeoffs']);
+            self::assertIsString($action['meta']['tradeoffs']);
+            self::assertArrayHasKey('currency', $action['cost_of_deviation']);
+            self::assertArrayHasKey('time_months', $action['cost_of_deviation']);
         }
     }
 }
