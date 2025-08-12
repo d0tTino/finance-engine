@@ -132,11 +132,11 @@ The debt simulation endpoint evaluates multiple payoff strategies and returns ra
 
 - `analysis_id` – Identifier for this simulation run.
 - `ranking_heuristic` – Ranking algorithm applied to the plans.
-- `proposed_actions` – Array of ranked payoff plans:
+- `proposed_actions` – Array of ranked payoff plans. If no strategies are configured, this array is empty:
   - `rank` – Position of the plan when sorted by total interest (1 is best).
   - `is_optimal` – Indicates whether the plan is the top-ranked option.
   - `plan` – Detailed strategy output:
-    - `strategy` – Name of the heuristic applied (`avalanche` or `snowball`).
+    - `strategy` – Name of the heuristic applied (`avalanche`, `snowball` or `balanced`).
     - `schedule` – Monthly breakdown of payments, balances, interest and cash flow.
   - `metrics` – Aggregated plan results:
     - `interest_saved` – Interest saved compared to the worst plan.
@@ -149,10 +149,19 @@ The debt simulation endpoint evaluates multiple payoff strategies and returns ra
 
 ## Heuristics
 
-Two heuristics are supported:
+The service supports three payoff strategies:
 
-- **Avalanche** – Prioritises accounts with the highest interest rate.
-- **Snowball** – Targets the smallest balance first to build momentum.
+### Avalanche
+
+Prioritises accounts with the highest interest rate.
+
+### Snowball
+
+Targets the smallest balance first to build momentum.
+
+### Balanced
+
+Distributes extra payments proportionally across outstanding debts using a smooth weighted round-robin algorithm so larger balances receive additional payments more frequently. If the monthly budget is less than the combined minimum payments, the strategy applies the minimums first and no extra funds are allocated, leaving the monthly `cash_flow` at `0`.
 
 ## Ranking and Deviation
 
