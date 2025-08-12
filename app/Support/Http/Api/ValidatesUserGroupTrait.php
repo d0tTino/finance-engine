@@ -66,9 +66,9 @@ trait ValidatesUserGroupTrait
             throw new AuthorizationException((string) trans('validation.no_access_user'));
         }
 
-        $userId = (int) $request->get('user_id');
-        if ($userId !== (int) $user->id) {
-            Log::debug(sprintf('validateUserGroup: user #%d tried to access user #%d.', $user->id, $userId));
+        $userId = (string) $request->get('user_id');
+        if ($userId !== (string) $user->uuid) {
+            Log::debug(sprintf('validateUserGroup: user %s tried to access user %s.', (string) $user->uuid, $userId));
 
             throw new AuthorizationException((string) trans('validation.no_access_user'));
         }

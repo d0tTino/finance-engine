@@ -95,7 +95,7 @@ class DebtRequest extends FormRequest
             function (LaravelValidator $validator): void {
                 $data = $validator->getData();
 
-                if ((string) request('user_id') !== (string) auth()->id()) {
+                if ((string) request('user_id') !== (string) auth()->user()->uuid) {
                     $validator->errors()->add('user_id', trans('validation.in'));
                 }
 

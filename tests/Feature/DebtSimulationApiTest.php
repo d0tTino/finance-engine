@@ -15,7 +15,6 @@ use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
 use FireflyIII\Http\Middleware\OpaMiddleware;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Validator;
-use Mockery;
 use Tests\integration\TestCase as IntegrationTestCase;
 use function Safe\putenv;
 
@@ -44,6 +43,7 @@ final class DebtSimulationApiTest extends IntegrationTestCase
             'name'            => 'Debt 1',
             'active'          => true,
         ]);
+        $account1->refresh();
         $account2  = Account::create([
             'user_id'         => $user1->id,
             'user_group_id'   => $user1->user_group_id,
@@ -51,17 +51,18 @@ final class DebtSimulationApiTest extends IntegrationTestCase
             'name'            => 'Debt 2',
             'active'          => true,
         ]);
+        $account2->refresh();
         $this->be($user1);
 
         $accounts1 = [
             [
-                'account_id'      => $account1->id,
+                'account_id'      => (string) $account1->uuid,
                 'balance'         => 100.0,
                 'apr'             => 5.0,
                 'minimum_payment' => 0.0,
             ],
             [
-                'account_id'      => $account2->id,
+                'account_id'      => (string) $account2->uuid,
                 'balance'         => 200.0,
                 'apr'             => 3.0,
                 'minimum_payment' => 0.0,
@@ -69,7 +70,7 @@ final class DebtSimulationApiTest extends IntegrationTestCase
         ];
 
         $payload1 = [
-            'user_id'        => (string) $user1->id,
+            'user_id'        => (string) $user1->uuid,
             'group_id'       => null,
             'accounts'       => $accounts1,
             'monthly_budget' => $budget,
@@ -86,24 +87,27 @@ final class DebtSimulationApiTest extends IntegrationTestCase
                 [
                     'rank',
                     'is_optimal',
-                    'strategy',
-                    'schedule',
-                    'interest_saved',
-                    'time_to_payoff_months',
-                    'total_interest_paid',
-                    'monthly_cash_flow',
+                    'plan'    => ['strategy', 'schedule'],
+                    'metrics' => [
+                        'interest_saved',
+                        'time_to_payoff_months',
+                        'total_interest_paid',
+                        'monthly_cash_flow',
+                    ],
+                    'meta'             => ['ranking_heuristic', 'tradeoffs'],
                     'cost_of_deviation' => ['currency', 'time' => ['months']],
-                    'ranking_heuristic',
                 ],
             ],
         ]);
         self::assertTrue(Str::isUuid($response1->json('analysis_id')));
-        self::assertNotEmpty($response1->json('proposed_actions.0.schedule'));
+        self::assertNotEmpty($response1->json('proposed_actions.0.plan.schedule'));
         self::assertArrayHasKey('cost_of_deviation', $response1->json('proposed_actions.0'));
         self::assertArrayHasKey('months', $response1->json('proposed_actions.0.cost_of_deviation.time'));
+        self::assertArrayHasKey('ranking_heuristic', $response1->json('proposed_actions.0.meta'));
+        self::assertArrayHasKey('tradeoffs', $response1->json('proposed_actions.0.meta'));
         self::assertArrayHasKey(
-            (string) $account1->id,
-            $response1->json('proposed_actions.0.schedule.0.payments')
+            (string) $account1->uuid,
+            $response1->json('proposed_actions.0.plan.schedule.0.payments')
         );
 
         $this->postJson('/api/v1/simulations/debt', array_merge($payload1, ['user_id' => (string) Str::uuid()]))
@@ -120,6 +124,7 @@ final class DebtSimulationApiTest extends IntegrationTestCase
             'name'            => 'Debt 3',
             'active'          => true,
         ]);
+        $account3->refresh();
         $account4 = Account::create([
             'user_id'         => $user2->id,
             'user_group_id'   => $user2->user_group_id,
@@ -127,17 +132,18 @@ final class DebtSimulationApiTest extends IntegrationTestCase
             'name'            => 'Debt 4',
             'active'          => true,
         ]);
+        $account4->refresh();
         $this->be($user2);
 
         $accounts2 = [
             [
-                'account_id'      => $account3->id,
+                'account_id'      => (string) $account3->uuid,
                 'balance'         => 100.0,
                 'apr'             => 5.0,
                 'minimum_payment' => 0.0,
             ],
             [
-                'account_id'      => $account4->id,
+                'account_id'      => (string) $account4->uuid,
                 'balance'         => 200.0,
                 'apr'             => 3.0,
                 'minimum_payment' => 0.0,
@@ -145,7 +151,7 @@ final class DebtSimulationApiTest extends IntegrationTestCase
         ];
 
         $payload2 = [
-            'user_id'        => (string) $user2->id,
+            'user_id'        => (string) $user2->uuid,
             'group_id'       => null,
             'accounts'       => $accounts2,
             'monthly_budget' => $budget,
@@ -161,7 +167,7 @@ final class DebtSimulationApiTest extends IntegrationTestCase
     {
         $accounts = [
             [
-                'account_id'       => 1,
+                'account_id'       => (string) Str::uuid(),
                 'balance'          => 100.0,
                 'apr'              => 5.0,
                 'minimum_payment'  => 0.0,
@@ -213,12 +219,13 @@ final class DebtSimulationApiTest extends IntegrationTestCase
             'name'            => 'Foreign debt',
             'active'          => true,
         ]);
+        $foreign->refresh();
 
         $payload = [
-            'user_id'        => (string) $user1->id,
+            'user_id'        => (string) $user1->uuid,
             'group_id'       => null,
             'accounts'       => [[
-                'account_id'       => $foreign->id,
+                'account_id'       => (string) $foreign->uuid,
                 'balance'          => 100.0,
                 'apr'              => 5.0,
                 'minimum_payment'  => 0.0,
@@ -258,12 +265,13 @@ final class DebtSimulationApiTest extends IntegrationTestCase
             'name'            => 'Debt 1',
             'active'          => true,
         ]);
+        $account1->refresh();
 
         $payload = [
-            'user_id'        => (string) $user1->id,
+            'user_id'        => (string) $user1->uuid,
             'group_id'       => (string) $user2->user_group_id,
             'accounts'       => [[
-                'account_id'       => $account1->id,
+                'account_id'       => (string) $account1->uuid,
                 'balance'          => 100.0,
                 'apr'              => 5.0,
                 'minimum_payment'  => 0.0,
