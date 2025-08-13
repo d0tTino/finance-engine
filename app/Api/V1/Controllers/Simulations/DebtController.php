@@ -80,7 +80,7 @@ class DebtController extends Controller
                     ],
                 ];
 
-                if (!$plan['is_optimal']) {
+                if (!(bool) $plan['is_optimal']) {
                     $result['cost_of_deviation'] = [
                         'currency'    => (float) $plan['cost_of_deviation']['currency'],
                         'time_months' => (int) $plan['cost_of_deviation']['time_months'],
@@ -88,9 +88,9 @@ class DebtController extends Controller
                 }
 
                 $result['meta'] = [
-                    'ranking_heuristic' => $plan['ranking_heuristic'],
-                    'ranking_reason'    => $plan['ranking_reason'] ?? $plan['ranking_heuristic'],
-                    'tradeoffs'         => $plan['tradeoffs'] ?? $plan['cost_of_deviation'],
+                    'ranking_heuristic' => $plan['meta']['ranking_heuristic'],
+                    'ranking_reason'    => $plan['meta']['ranking_reason'] ?? $plan['meta']['ranking_heuristic'],
+                    'tradeoffs'         => $plan['meta']['tradeoffs'] ?? $plan['cost_of_deviation'],
                 ];
 
                 return $result;
