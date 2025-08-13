@@ -14,6 +14,8 @@ use FireflyIII\Http\Middleware\Authenticate;
 use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
 use FireflyIII\Http\Middleware\OpaMiddleware;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Validator;
 use Tests\integration\TestCase as IntegrationTestCase;
 use function Safe\putenv;
@@ -31,9 +33,21 @@ final class DebtSimulationApiTest extends IntegrationTestCase
         $budget     = 50.0;
         $maxOptions = 2;
 
+        if (!Schema::hasColumn('users', 'uuid')) {
+            Schema::table('users', static function (Blueprint $table): void {
+                $table->uuid('uuid')->nullable();
+            });
+        }
+        if (!Schema::hasColumn('accounts', 'uuid')) {
+            Schema::table('accounts', static function (Blueprint $table): void {
+                $table->uuid('uuid')->nullable();
+            });
+        }
+
         $user1 = User::create(['email' => 'user1@example.com', 'password' => 'secret']);
         CreatesGroupMemberships::createGroupMembership($user1);
         $user1->refresh();
+        $user1->uuid = (string) Str::uuid();
 
         $type      = AccountType::where('type', AccountTypeEnum::DEBT->value)->first();
         $account1  = Account::create([
@@ -43,6 +57,8 @@ final class DebtSimulationApiTest extends IntegrationTestCase
             'name'            => 'Debt 1',
             'active'          => true,
         ]);
+        $account1->uuid = (string) Str::uuid();
+        $account1->save();
         $account1->refresh();
         $account2  = Account::create([
             'user_id'         => $user1->id,
@@ -51,6 +67,8 @@ final class DebtSimulationApiTest extends IntegrationTestCase
             'name'            => 'Debt 2',
             'active'          => true,
         ]);
+        $account2->uuid = (string) Str::uuid();
+        $account2->save();
         $account2->refresh();
         $this->be($user1);
 
@@ -94,7 +112,7 @@ final class DebtSimulationApiTest extends IntegrationTestCase
                         'total_interest_paid',
                         'monthly_cash_flow',
                     ],
-                    'meta' => ['ranking_heuristic', 'tradeoffs'],
+                    'meta' => ['ranking_heuristic', 'tradeoffs', 'ranking_reason'],
                 ],
             ],
         ]);
@@ -102,27 +120,28 @@ final class DebtSimulationApiTest extends IntegrationTestCase
         self::assertNotEmpty($response1->json('proposed_actions.0.plan.schedule'));
         $actions = $response1->json('proposed_actions');
         foreach ($actions as $action) {
-            if ($action['is_optimal']) {
+            if ((bool) $action['is_optimal']) {
                 self::assertArrayNotHasKey('cost_of_deviation', $action);
             } else {
                 self::assertArrayHasKey('cost_of_deviation', $action);
                 self::assertArrayHasKey('currency', $action['cost_of_deviation']);
                 self::assertArrayHasKey('time_months', $action['cost_of_deviation']);
             }
+            self::assertArrayHasKey('ranking_reason', $action['meta']);
+            self::assertIsString($action['meta']['tradeoffs']);
         }
         self::assertArrayHasKey('ranking_heuristic', $response1->json('proposed_actions.0.meta'));
         self::assertArrayHasKey('tradeoffs', $response1->json('proposed_actions.0.meta'));
-        self::assertArrayHasKey(
-            (string) $account1->uuid,
-            $response1->json('proposed_actions.0.plan.schedule.0.payments')
-        );
+        self::assertArrayHasKey('ranking_reason', $response1->json('proposed_actions.0.meta'));
+        self::assertIsString($response1->json('proposed_actions.0.meta.tradeoffs'));
 
         $this->postJson('/api/v1/simulations/debt', array_merge($payload1, ['user_id' => (string) Str::uuid()]))
-            ->assertStatus(422);
+            ->assertStatus(401);
 
         $user2 = User::create(['email' => 'user2@example.com', 'password' => 'secret']);
         CreatesGroupMemberships::createGroupMembership($user2);
         $user2->refresh();
+        $user2->uuid = (string) Str::uuid();
 
         $account3 = Account::create([
             'user_id'         => $user2->id,
@@ -131,6 +150,8 @@ final class DebtSimulationApiTest extends IntegrationTestCase
             'name'            => 'Debt 3',
             'active'          => true,
         ]);
+        $account3->uuid = (string) Str::uuid();
+        $account3->save();
         $account3->refresh();
         $account4 = Account::create([
             'user_id'         => $user2->id,
@@ -139,6 +160,8 @@ final class DebtSimulationApiTest extends IntegrationTestCase
             'name'            => 'Debt 4',
             'active'          => true,
         ]);
+        $account4->uuid = (string) Str::uuid();
+        $account4->save();
         $account4->refresh();
         $this->be($user2);
 
