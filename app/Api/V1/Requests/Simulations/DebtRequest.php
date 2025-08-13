@@ -131,6 +131,16 @@ class DebtRequest extends FormRequest
                         );
                     }
                 }
+
+                $minimumPayments = array_reduce(
+                    $data['accounts'],
+                    static fn (float $carry, array $account): float => $carry + (float) ($account['minimum_payment'] ?? 0.0),
+                    0.0
+                );
+
+                if ((float) ($data['monthly_budget'] ?? 0.0) < $minimumPayments) {
+                    $validator->errors()->add('monthly_budget', trans('validation.insufficient_budget'));
+                }
             }
         );
         if ($validator->fails()) {
