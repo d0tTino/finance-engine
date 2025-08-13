@@ -94,7 +94,13 @@ class DebtSimulationService
                 $plans = [];
                 foreach ($this->strategies as $strategy) {
                     $plan    = $this->generateSchedule($debts, $budget, $strategy);
-                    $plans[] = array_merge(['strategy' => $strategy->getName()], $plan);
+                    $plans[] = array_merge(
+                        [
+                            'strategy' => $strategy->getName(),
+                            'meta'     => ['strategy_explanation' => $strategy->getDescription()],
+                        ],
+                        $plan
+                    );
                 }
 
                 usort($plans, static function (array $a, array $b): int {
@@ -126,11 +132,14 @@ class DebtSimulationService
                             $plan['cost_of_deviation']['time_months']
                         );
 
-                    $plan['meta'] = [
-                        'ranking_heuristic' => self::RANKING_HEURISTIC,
-                        'ranking_reason'    => $plan['is_optimal'] ? 'minimizes interest' : 'higher cost or duration',
-                        'tradeoffs'         => $tradeoffString,
-                    ];
+                    $plan['meta'] = array_merge(
+                        $plan['meta'],
+                        [
+                            'ranking_heuristic' => self::RANKING_HEURISTIC,
+                            'ranking_reason'    => $plan['is_optimal'] ? 'minimizes interest' : 'higher cost or duration',
+                            'tradeoffs'         => $tradeoffString,
+                        ]
+                    );
                 }
                 unset($plan);
 
