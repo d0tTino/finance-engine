@@ -95,14 +95,13 @@ class DebtSimulationService
                 foreach ($this->strategies as $strategy) {
                     $plan    = $this->generateSchedule($debts, $budget, $strategy);
                     $plans[] = array_merge(['strategy' => $strategy->getName()], $plan);
-                    if (count($plans) >= $maxOptions) {
-                        break;
-                    }
                 }
 
                 usort($plans, static function (array $a, array $b): int {
                     return [$a['total_interest'], $a['months']] <=> [$b['total_interest'], $b['months']];
                 });
+
+                $plans = array_slice($plans, 0, $maxOptions);
 
                 $bestInterest  = $plans[0]['total_interest'] ?? 0.0;
                 $bestMonths    = $plans[0]['months'] ?? 0;

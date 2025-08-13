@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Tests\unit\Modules\AI;
 
 use FireflyIII\Modules\AI\Simulations\DebtSimulationService;
+use FireflyIII\Modules\AI\Simulations\Strategies\AvalancheStrategy;
+use FireflyIII\Modules\AI\Simulations\Strategies\BalancedStrategy;
+use FireflyIII\Modules\AI\Simulations\Strategies\SnowballStrategy;
 use Illuminate\Support\Facades\Cache;
 use Tests\integration\TestCase;
 
@@ -46,5 +49,30 @@ final class DebtSimulationServiceRankingTest extends TestCase
             self::assertIsString($plan['meta']['ranking_reason']);
             self::assertIsString($plan['meta']['tradeoffs']);
         }
+    }
+
+    public function testBestPlansReturnedRegardlessOfStrategyOrder(): void
+    {
+        Cache::flush();
+
+        $user       = $this->createAuthenticatedUser();
+        $accounts   = [
+            ['account_id' => 1, 'name' => 'Loan1', 'balance' => 1000.0, 'apr' => 10.0, 'min_payment' => 0.0],
+            ['account_id' => 2, 'name' => 'Loan2', 'balance' => 500.0, 'apr' => 5.0, 'min_payment' => 0.0],
+        ];
+
+        $strategies = [SnowballStrategy::class, BalancedStrategy::class, AvalancheStrategy::class];
+
+        $serviceA = new DebtSimulationService($strategies);
+        $plansA   = $serviceA->simulate((string) $user->id, '1', $accounts, 300.0, 2);
+
+        $serviceB = new DebtSimulationService(array_reverse($strategies));
+        $plansB   = $serviceB->simulate((string) $user->id, '1', $accounts, 300.0, 2);
+
+        $strategiesA = array_column($plansA, 'strategy');
+        $strategiesB = array_column($plansB, 'strategy');
+
+        self::assertSame($strategiesA, $strategiesB);
+        self::assertSame('avalanche', $strategiesA[0]);
     }
 }
