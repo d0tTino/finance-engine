@@ -11,6 +11,11 @@ class AvalancheStrategy implements StrategyInterface
         return 'avalanche';
     }
 
+    public function getDescription(): string
+    {
+        return 'Pays extra toward the debt with the highest interest rate first.';
+    }
+
     public function selectTargetDebt(array $debts): ?int
     {
         $indices     = array_keys($debts);

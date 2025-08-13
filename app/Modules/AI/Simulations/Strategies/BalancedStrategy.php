@@ -25,6 +25,11 @@ class BalancedStrategy implements StrategyInterface
         return 'balanced';
     }
 
+    public function getDescription(): string
+    {
+        return 'Distributes extra payments proportionally based on each debt\'s remaining balance.';
+    }
+
     public function selectTargetDebt(array $debts): ?int
     {
         $activeBalances = [];

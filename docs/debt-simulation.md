@@ -85,8 +85,8 @@ The debt simulation endpoint evaluates multiple payoff strategies and returns ra
         "time_months": 0
       },
       "meta": {
-        "ranking_heuristic": "interest_then_months"
-
+        "ranking_heuristic": "interest_then_months",
+        "strategy_explanation": "Pays extra toward the debt with the highest interest rate first."
       }
     },
     {
@@ -120,8 +120,8 @@ The debt simulation endpoint evaluates multiple payoff strategies and returns ra
         "time_months": 2
       },
       "meta": {
-        "ranking_heuristic": "interest_then_months"
-
+        "ranking_heuristic": "interest_then_months",
+        "strategy_explanation": "Pays extra toward the debt with the smallest balance first to build momentum."
       }
     }
   ]
@@ -146,6 +146,11 @@ The debt simulation endpoint evaluates multiple payoff strategies and returns ra
   - `cost_of_deviation` – Extra cost versus the optimal plan:
     - `currency` – Additional interest compared to the optimal plan.
     - `time_months` – Additional duration compared to the optimal plan in months.
+  - `meta` – Additional information about the plan:
+    - `strategy_explanation` – Description of how the payoff strategy works.
+    - `ranking_heuristic` – Ranking algorithm applied to the plans.
+    - `ranking_reason` – Explanation of why the plan received its rank.
+    - `tradeoffs` – Summary of extra cost and time versus the optimal plan.
 
 ## Heuristics
 

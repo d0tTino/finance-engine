@@ -11,6 +11,11 @@ class SnowballStrategy implements StrategyInterface
         return 'snowball';
     }
 
+    public function getDescription(): string
+    {
+        return 'Pays extra toward the debt with the smallest balance first to build momentum.';
+    }
+
     public function selectTargetDebt(array $debts): ?int
     {
         $indices     = array_keys($debts);
