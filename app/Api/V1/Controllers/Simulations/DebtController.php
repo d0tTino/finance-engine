@@ -65,7 +65,7 @@ class DebtController extends Controller
         $analysisId      = (string) Str::uuid();
         $proposedActions = array_map(
             static function (array $plan): array {
-                return [
+                $result = [
                     'rank'       => $plan['rank'],
                     'is_optimal' => $plan['is_optimal'],
                     'plan'       => [
@@ -78,16 +78,22 @@ class DebtController extends Controller
                         'total_interest_paid'   => (float) $plan['total_interest'],
                         'monthly_cash_flow'     => $plan['monthly_cash_flow'],
                     ],
-                    'cost_of_deviation' => [
+                ];
+
+                if (!$plan['is_optimal']) {
+                    $result['cost_of_deviation'] = [
                         'currency'    => (float) $plan['cost_of_deviation']['currency'],
                         'time_months' => (int) $plan['cost_of_deviation']['time_months'],
-                    ],
-                    'meta' => [
-                        'ranking_heuristic' => $plan['ranking_heuristic'],
-                        'ranking_reason'    => $plan['ranking_reason'] ?? $plan['ranking_heuristic'],
-                        'tradeoffs'         => $plan['tradeoffs'] ?? $plan['cost_of_deviation'],
-                    ],
+                    ];
+                }
+
+                $result['meta'] = [
+                    'ranking_heuristic' => $plan['ranking_heuristic'],
+                    'ranking_reason'    => $plan['ranking_reason'] ?? $plan['ranking_heuristic'],
+                    'tradeoffs'         => $plan['tradeoffs'] ?? $plan['cost_of_deviation'],
                 ];
+
+                return $result;
             },
             $plans
         );

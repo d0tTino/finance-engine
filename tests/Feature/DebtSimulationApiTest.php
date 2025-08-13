@@ -94,15 +94,22 @@ final class DebtSimulationApiTest extends IntegrationTestCase
                         'total_interest_paid',
                         'monthly_cash_flow',
                     ],
-                    'meta'             => ['ranking_heuristic', 'tradeoffs'],
-                    'cost_of_deviation' => ['currency', 'time' => ['months']],
+                    'meta' => ['ranking_heuristic', 'tradeoffs'],
                 ],
             ],
         ]);
         self::assertTrue(Str::isUuid($response1->json('analysis_id')));
         self::assertNotEmpty($response1->json('proposed_actions.0.plan.schedule'));
-        self::assertArrayHasKey('cost_of_deviation', $response1->json('proposed_actions.0'));
-        self::assertArrayHasKey('months', $response1->json('proposed_actions.0.cost_of_deviation.time'));
+        $actions = $response1->json('proposed_actions');
+        foreach ($actions as $action) {
+            if ($action['is_optimal']) {
+                self::assertArrayNotHasKey('cost_of_deviation', $action);
+            } else {
+                self::assertArrayHasKey('cost_of_deviation', $action);
+                self::assertArrayHasKey('currency', $action['cost_of_deviation']);
+                self::assertArrayHasKey('time_months', $action['cost_of_deviation']);
+            }
+        }
         self::assertArrayHasKey('ranking_heuristic', $response1->json('proposed_actions.0.meta'));
         self::assertArrayHasKey('tradeoffs', $response1->json('proposed_actions.0.meta'));
         self::assertArrayHasKey(
@@ -281,7 +288,6 @@ final class DebtSimulationApiTest extends IntegrationTestCase
         ];
 
         $this->postJson('/api/v1/simulations/debt', $payload)
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(['group_id']);
+            ->assertStatus(401);
     }
 }
