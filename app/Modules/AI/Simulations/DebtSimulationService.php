@@ -38,6 +38,7 @@ use FireflyIII\Support\Cache\UserScopedCache;
 class DebtSimulationService
 {
     public const RANKING_HEURISTIC = 'interest_then_months';
+    public const MAX_MONTHS = 600;
 
     /** @var StrategyInterface[] */
     private array $strategies;
@@ -111,7 +112,8 @@ class DebtSimulationService
 
                 $bestInterest  = $plans[0]['total_interest'] ?? 0.0;
                 $bestMonths    = $plans[0]['months'] ?? 0;
-                $worstInterest = max(array_column($plans, 'total_interest'));
+                $interestList  = array_column($plans, 'total_interest');
+                $worstInterest = $interestList !== [] ? max($interestList) : 0.0;
 
                 foreach ($plans as $i => &$plan) {
                     $plan['rank']                  = $i + 1;
@@ -171,10 +173,21 @@ class DebtSimulationService
         $totalInterest     = 0.0;
         $month             = 0;
         $cashFlowTimeline  = [];
+        $nonConverging     = false;
 
         while ($this->hasBalance($debts)) {
+            if ($month >= self::MAX_MONTHS) {
+                $nonConverging = true;
+                break;
+            }
+
             ++$month;
             $interestThisMonth = 0.0;
+            $balanceBefore     = 0.0;
+            foreach ($debts as $debt) {
+                $balanceBefore += max($debt['balance'], 0.0);
+            }
+            unset($debt);
             foreach ($debts as &$debt) {
                 if ($debt['balance'] <= 0) {
                     continue;
@@ -204,7 +217,7 @@ class DebtSimulationService
             $remainingBudget = max($remainingBudget, 0.0);
 
             // Allocate any extra budget to targeted debt(s).
-            while ($remainingBudget > 0 && $this->hasBalance($debts)) {
+            while ($remainingBudget > 0 && $this->hasBalance($debts)) { // @phpstan-ignore-line booleanAnd.rightAlwaysTrue
                 $targetKey = $strategy->selectTargetDebt($debts);
                 if (null === $targetKey) {
                     break;
@@ -225,8 +238,11 @@ class DebtSimulationService
             $cashFlowTimeline[] = ['month' => $month, 'cash_flow' => $remainingBudget];
 
             $balanceSnapshot = [];
+            $balanceAfter    = 0.0;
             foreach ($debts as $debt) {
-                $balanceSnapshot[$debt['name']] = max($debt['balance'], 0.0);
+                $currentBalance                   = max($debt['balance'], 0.0);
+                $balanceSnapshot[$debt['name']]   = $currentBalance;
+                $balanceAfter                    += $currentBalance;
             }
 
             $schedule[] = [
@@ -237,6 +253,11 @@ class DebtSimulationService
                 'payment'   => $totalPayment,
                 'cash_flow' => $remainingBudget,
             ];
+
+            if ($balanceAfter > $balanceBefore) {
+                $nonConverging = true;
+                break;
+            }
         }
 
         return [
@@ -244,6 +265,7 @@ class DebtSimulationService
             'total_interest'    => $totalInterest,
             'months'            => $month,
             'monthly_cash_flow' => $cashFlowTimeline,
+            'status'            => $nonConverging ? 'non_converging' : 'ok',
         ];
     }
 
