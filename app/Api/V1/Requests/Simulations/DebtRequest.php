@@ -119,12 +119,21 @@ class DebtRequest extends FormRequest
                 $repository = app(AccountRepositoryInterface::class);
                 $repository->setUser(auth()->user());
 
-                foreach ($data['accounts'] as $index => $array) {
-                    $uuid    = (string) ($array['account_id'] ?? '');
-                    $account = Account::where('uuid', $uuid)->first();
-                    $accountId = (int) (($account instanceof Account) ? $account->id : 0);
+                $uuids = [];
+                foreach ($data['accounts'] as $array) {
+                    $uuids[] = (string) ($array['account_id'] ?? '');
+                }
 
-                    if (null === $repository->find($accountId)) {
+                $uuidMap      = Account::query()->whereIn('uuid', $uuids)->pluck('id', 'uuid');
+                $authorized   = array_flip(
+                    $repository->getAccountsById($uuidMap->values()->all())->pluck('id')->all()
+                );
+
+                foreach ($data['accounts'] as $index => $array) {
+                    $uuid      = (string) ($array['account_id'] ?? '');
+                    $accountId = (int) ($uuidMap[$uuid] ?? 0);
+
+                    if (0 === $accountId || !isset($authorized[$accountId])) {
                         $validator->errors()->add(
                             sprintf('accounts.%d.account_id', $index),
                             trans('validation.belongs_user_or_user_group')
