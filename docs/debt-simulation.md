@@ -6,6 +6,10 @@ The debt simulation endpoint evaluates multiple payoff strategies and returns ra
 
 `POST /api/v1/simulations/debt`
 
+## Configuration
+
+Simulation results are cached per user to speed up repeated requests. The cache lifetime in seconds is configured via `ai.debt_simulation_cache_ttl` in `config/ai.php` and defaults to `3600`.
+
 ## Request
 
 ```json
