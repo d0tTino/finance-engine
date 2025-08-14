@@ -13,6 +13,9 @@ interface StrategyInterface
      */
     public function getDescription(): string;
 
+    /** Reset any internal state before simulating a new schedule. */
+    public function reset(): void;
+
     /**
      * Select the index of the debt that should receive extra payments.
      *
