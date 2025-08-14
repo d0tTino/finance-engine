@@ -156,7 +156,7 @@ class RecurrenceUpdateService
             ];
             foreach ($fields as $field => $column) {
                 if (array_key_exists($field, $current)) {
-                    $match->{$column} = $current[$field];
+                    $match->setAttribute($column, $current[$field]);
                     $match->save();
                 }
             }
@@ -303,7 +303,7 @@ class RecurrenceUpdateService
         ];
         foreach ($fields as $field => $column) {
             if (array_key_exists($field, $submitted)) {
-                $transaction->{$column} = $submitted[$field];
+                $transaction->setAttribute($column, $submitted[$field]);
                 $transaction->save();
             }
         }
