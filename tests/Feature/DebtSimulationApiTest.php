@@ -88,7 +88,7 @@ final class DebtSimulationApiTest extends IntegrationTestCase
         ];
 
         $payload1 = [
-            'user_id'        => (string) $user1->uuid,
+            'user_id'        => $user1->uuid,
             'group_id'       => null,
             'accounts'       => $accounts1,
             'monthly_budget' => $budget,
@@ -112,7 +112,7 @@ final class DebtSimulationApiTest extends IntegrationTestCase
                         'total_interest_paid',
                         'monthly_cash_flow',
                     ],
-                    'meta' => ['ranking_heuristic', 'tradeoffs', 'ranking_reason'],
+                    'meta' => ['ranking_heuristic', 'tradeoffs', 'ranking_reason', 'strategy_explanation'],
                 ],
             ],
         ]);
@@ -129,11 +129,15 @@ final class DebtSimulationApiTest extends IntegrationTestCase
             }
             self::assertArrayHasKey('ranking_reason', $action['meta']);
             self::assertIsString($action['meta']['tradeoffs']);
+            self::assertArrayHasKey('strategy_explanation', $action['meta']);
+            self::assertIsString($action['meta']['strategy_explanation']);
         }
         self::assertArrayHasKey('ranking_heuristic', $response1->json('proposed_actions.0.meta'));
         self::assertArrayHasKey('tradeoffs', $response1->json('proposed_actions.0.meta'));
         self::assertArrayHasKey('ranking_reason', $response1->json('proposed_actions.0.meta'));
+        self::assertArrayHasKey('strategy_explanation', $response1->json('proposed_actions.0.meta'));
         self::assertIsString($response1->json('proposed_actions.0.meta.tradeoffs'));
+        self::assertIsString($response1->json('proposed_actions.0.meta.strategy_explanation'));
 
         $this->postJson('/api/v1/simulations/debt', array_merge($payload1, ['user_id' => (string) Str::uuid()]))
             ->assertStatus(401);
@@ -181,7 +185,7 @@ final class DebtSimulationApiTest extends IntegrationTestCase
         ];
 
         $payload2 = [
-            'user_id'        => (string) $user2->uuid,
+            'user_id'        => $user2->uuid,
             'group_id'       => null,
             'accounts'       => $accounts2,
             'monthly_budget' => $budget,
