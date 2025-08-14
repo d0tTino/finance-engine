@@ -20,6 +20,11 @@ class BalancedStrategy implements StrategyInterface
      */
     private array $currentWeights = [];
 
+    public function reset(): void
+    {
+        $this->currentWeights = [];
+    }
+
     public function getName(): string
     {
         return 'balanced';

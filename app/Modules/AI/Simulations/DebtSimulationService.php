@@ -175,6 +175,8 @@ class DebtSimulationService
         $cashFlowTimeline  = [];
         $nonConverging     = false;
 
+        $strategy->reset();
+
         while ($this->hasBalance($debts)) {
             if ($month >= self::MAX_MONTHS) {
                 $nonConverging = true;
@@ -217,7 +219,7 @@ class DebtSimulationService
             $remainingBudget = max($remainingBudget, 0.0);
 
             // Allocate any extra budget to targeted debt(s).
-            while ($remainingBudget > 0 && $this->hasBalance($debts)) { // @phpstan-ignore-line booleanAnd.rightAlwaysTrue
+            while ($remainingBudget > 0 && $this->hasBalance($debts)) {
                 $targetKey = $strategy->selectTargetDebt($debts);
                 if (null === $targetKey) {
                     break;
