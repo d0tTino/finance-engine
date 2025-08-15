@@ -1,5 +1,6 @@
-"""Strategy implementations for Finance Engine."""
+"""Strategy utilities."""
 
-from .deadline_no import DeadlineNoStrategy
+from .backtest import run_backtest
 
-__all__ = ["DeadlineNoStrategy"]
+__all__ = ["run_backtest"]
+
