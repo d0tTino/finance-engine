@@ -79,6 +79,7 @@ class DebtSimulationService
         });
 
         $hash     = hash('sha256', serialize([$accounts, $budget, $maxOptions]));
+
         $cacheKey = 'debt-sim-' . $hash;
         $ttl      = (int) config('ai.debt_simulation_cache_ttl', 3600);
 
