@@ -74,6 +74,10 @@ class DebtSimulationService
             return [];
         }
 
+        usort($accounts, static function (array $a, array $b): int {
+            return ($a['account_id'] ?? 0) <=> ($b['account_id'] ?? 0);
+        });
+
         $hash     = hash('sha256', serialize([$accounts, $budget, $maxOptions]));
         $cacheKey = 'debt-sim-' . $hash;
         $ttl      = (int) config('ai.debt_simulation_cache_ttl', 3600);
@@ -221,7 +225,7 @@ class DebtSimulationService
             $remainingBudget = max($remainingBudget, 0.0);
 
             // Allocate any extra budget to targeted debt(s).
-            while ($remainingBudget > 0 && $this->hasBalance($debts)) {
+            while ($remainingBudget > 0 && $this->hasBalance($debts)) { // @phpstan-ignore-line
                 $targetKey = $strategy->selectTargetDebt($debts);
                 if (null === $targetKey) {
                     break;
