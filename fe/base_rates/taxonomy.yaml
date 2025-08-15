@@ -1,0 +1,52 @@
+---
+# Taxonomy of market categories and analysis horizons for base rate
+# computations. Categories capture broad market drivers, while horizons
+# describe temporal or contextual scopes. The nested structure simplifies
+# extension with new categories or horizons without restructuring.
+
+geopolitics:
+  # Political events and geopolitical relations that impact markets.
+  horizons:
+    by_date:
+      # Aligns geopolitical events by calendar date to track
+      # immediate market responses.
+      description: "Group events by the specific date they occurred."
+    by_region:
+      # Segments events by affected region or country for regional analysis.
+      description: "Group events based on their geographic region or country."
+
+macroeconomics:
+  # High-level economic indicators influencing broad market behavior.
+  horizons:
+    annual:
+      # Yearly aggregates suitable for long-term trend analysis.
+      description: "Aggregate indicators on a yearly basis."
+    quarterly:
+      # Quarter-by-quarter figures capturing business cycles.
+      description: "Aggregate indicators by fiscal quarter."
+    monthly:
+      # Monthly data for timely signals.
+      description: "Aggregate indicators by month."
+
+sector:
+  # Industry or sector specific data reflecting micro-level trends.
+  horizons:
+    by_industry:
+      # Organizes metrics by industry classification.
+      description: "Group data by industry sector."
+    by_company:
+      # Allows drilling down to individual companies for detailed analysis.
+      description: "Group data at the company level."
+
+market_microstructure:
+  # Characteristics of trading environments and market liquidity.
+  horizons:
+    intraday:
+      # Captures sub-daily trading dynamics.
+      description: "Data sampled within a single trading day."
+    daily:
+      # End-of-day snapshots of market structure.
+      description: "Data aggregated per trading day."
+    weekly:
+      # Higher-level view to smooth short-term noise.
+      description: "Data aggregated per week."
