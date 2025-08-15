@@ -1,0 +1,9 @@
+category,horizon_days,outcome
+politics,30,0
+politics,60,0
+politics,90,1
+politics,120,1
+sports,30,1
+sports,60,1
+sports,90,0
+sports,120,0
