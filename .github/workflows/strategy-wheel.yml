@@ -1,0 +1,26 @@
+name: Build strategy wheel
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Set version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+      - name: Install build tools
+        run: pip install build
+      - name: Build wheel
+        run: python fe/export/build.py $VERSION
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: polymarket_alpha_${{ env.VERSION }}.whl
+          path: dist/polymarket_alpha_${{ env.VERSION }}.whl
