@@ -7,11 +7,15 @@ import re
 CLEAR_KEYWORDS = {
     "official",
     "exact",
+    "exactly",
     "no later than",
     "based on",
     "publicly",
     "will be",
     "determined by",
+    "shall",
+    "must",
+    "within",
 }
 AMBIGUOUS_KEYWORDS = {
     "ambiguity",
@@ -25,7 +29,22 @@ AMBIGUOUS_KEYWORDS = {
     "subject to",
     "admin",
     "committee",
+    "approximately",
+    "approx",
+    "around",
+    "roughly",
+    "likely",
+    "probably",
 }
+
+CLEAR_PATTERNS = [
+    re.compile(r"within\s+\d+\s+(?:day|hour|minute|week|month)s?"),
+]
+
+AMBIGUOUS_PATTERNS = [
+    re.compile(r"\bapprox(?:\.|imately)?\b"),
+    re.compile(r"\broughly\b"),
+]
 
 
 def score_rule_objectivity(rule: Optional[str]) -> str:
@@ -40,9 +59,13 @@ def score_rule_objectivity(rule: Optional[str]) -> str:
     if not rule or not rule.strip():
         return "unknown"
 
-    text = rule.lower()
-    ambiguous = any(kw in text for kw in AMBIGUOUS_KEYWORDS)
-    clear = any(kw in text for kw in CLEAR_KEYWORDS)
+    text = " ".join(rule.split()).lower()
+    ambiguous = any(kw in text for kw in AMBIGUOUS_KEYWORDS) or any(
+        pattern.search(text) for pattern in AMBIGUOUS_PATTERNS
+    )
+    clear = any(kw in text for kw in CLEAR_KEYWORDS) or any(
+        pattern.search(text) for pattern in CLEAR_PATTERNS
+    )
     if re.search(r"\d", text):
         clear = True
 
