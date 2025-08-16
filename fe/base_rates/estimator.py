@@ -89,3 +89,75 @@ def estimate_prior(
     n = len(window_df)
     ci = _wilson_interval(successes, n)
     return prob, ci
+
+
+def evaluate_brier_score(
+    test_size: float = 0.2, random_state: int | None = 0
+) -> Tuple[float, float]:
+    """Evaluate isotonic calibration via the Brier score.
+
+    The historical dataset is split into training and validation
+    partitions for every category.  An ``IsotonicRegression`` model is
+    fitted on the training set and predictions are generated for the
+    validation portion.  The Brier score of these predictions is
+    compared against a naive baseline that always predicts ``0.5``
+    ("flat prior").
+
+    Parameters
+    ----------
+    test_size:
+        Fraction of each category's data to reserve for validation.
+    random_state:
+        Seed used when shuffling data prior to the split.
+
+    Returns
+    -------
+    score, improvement:
+        ``score`` is the overall Brier score of the isotonic
+        predictions on the validation data. ``improvement`` is the
+        percentage reduction in Brier score relative to the flat
+        baseline. A positive value indicates an improvement.
+    """
+
+    _load_data()
+    if _DATA is None:
+        raise RuntimeError("historical data failed to load")
+
+    isotonic_preds: list[float] = []
+    flat_preds: list[float] = []
+    outcomes: list[float] = []
+
+    rng = np.random.default_rng(random_state)
+
+    for _, df_cat in _DATA.groupby("category"):
+        if len(df_cat) < 2:
+            # Need at least one point for training and one for testing.
+            continue
+
+        df_cat = df_cat.sample(frac=1, random_state=rng.integers(0, 2**32))
+        split = int(len(df_cat) * (1 - test_size))
+        split = min(max(split, 1), len(df_cat) - 1)
+        train = df_cat.iloc[:split]
+        test = df_cat.iloc[split:]
+
+        model = IsotonicRegression(out_of_bounds="clip")
+        model.fit(train["horizon_days"], train["outcome"])
+
+        preds = model.predict(test["horizon_days"])
+        isotonic_preds.extend(preds.tolist())
+        flat_preds.extend([0.5] * len(test))
+        outcomes.extend(test["outcome"].tolist())
+
+    if not outcomes:
+        raise RuntimeError("not enough data to evaluate Brier score")
+
+    outcomes_arr = np.asarray(outcomes)
+    iso_arr = np.asarray(isotonic_preds)
+    flat_arr = np.asarray(flat_preds)
+
+    iso_score = float(np.mean((iso_arr - outcomes_arr) ** 2))
+    flat_score = float(np.mean((flat_arr - outcomes_arr) ** 2))
+    improvement = 0.0
+    if flat_score > 0:
+        improvement = 100.0 * (flat_score - iso_score) / flat_score
+    return iso_score, improvement
