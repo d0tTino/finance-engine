@@ -105,7 +105,7 @@ final class DebtSimulationApiTest extends IntegrationTestCase
                 [
                     'rank',
                     'is_optimal',
-                    'plan'    => ['strategy', 'schedule'],
+                    'plan'    => ['strategy', 'schedule', 'status'],
                     'metrics' => [
                         'interest_saved',
                         'time_to_payoff_months',
@@ -118,8 +118,11 @@ final class DebtSimulationApiTest extends IntegrationTestCase
         ]);
         self::assertTrue(Str::isUuid($response1->json('analysis_id')));
         self::assertNotEmpty($response1->json('proposed_actions.0.plan.schedule'));
+        self::assertIsString($response1->json('proposed_actions.0.plan.status'));
         $actions = $response1->json('proposed_actions');
         foreach ($actions as $action) {
+            self::assertArrayHasKey('status', $action['plan']);
+            self::assertIsString($action['plan']['status']);
             if ((bool) $action['is_optimal']) {
                 self::assertArrayNotHasKey('cost_of_deviation', $action);
             } else {

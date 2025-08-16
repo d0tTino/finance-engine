@@ -71,6 +71,7 @@ class DebtController extends Controller
                     'plan'       => [
                         'strategy' => $plan['strategy'],
                         'schedule' => $plan['schedule'],
+                        'status'   => $plan['status'],
                     ],
                     'metrics' => [
                         'interest_saved'        => (float) $plan['interest_saved'],
