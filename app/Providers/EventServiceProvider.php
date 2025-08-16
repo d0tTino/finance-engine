@@ -59,6 +59,7 @@ use FireflyIII\Events\UpdatedAccount;
 use FireflyIII\Events\UpdatedTransactionGroup;
 use FireflyIII\Events\UserChangedEmail;
 use FireflyIII\Events\WarnUserAboutBill;
+use FireflyIII\Listeners\FlushDebtSimulationCache;
 use FireflyIII\Handlers\Observer\AccountObserver;
 use FireflyIII\Handlers\Observer\AttachmentObserver;
 use FireflyIII\Handlers\Observer\AutoBudgetObserver;
@@ -196,6 +197,12 @@ class EventServiceProvider extends ServiceProvider
             ],
             UpdatedAccount::class                  => [
                 'FireflyIII\Handlers\Events\UpdatedAccountEventHandler@recalculateCredit',
+            ],
+            'eloquent.updated: FireflyIII\Models\Account' => [
+                FlushDebtSimulationCache::class,
+            ],
+            'eloquent.deleted: FireflyIII\Models\Account' => [
+                FlushDebtSimulationCache::class,
             ],
 
             // bill related events:
