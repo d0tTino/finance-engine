@@ -122,6 +122,9 @@ class DebtSimulationService
                 $worstInterest = $interestList !== [] ? max($interestList) : 0.0;
 
                 foreach ($plans as $i => &$plan) {
+                    // Preserve the original status in case additional metrics overwrite keys.
+                    $status = $plan['status'] ?? 'ok';
+
                     $plan['rank']                  = $i + 1;
                     $plan['is_optimal']            = 0 === $i;
                     $plan['total_interest']        = (float) $plan['total_interest'];
@@ -148,6 +151,9 @@ class DebtSimulationService
                             'tradeoffs'         => $tradeoffString,
                         ]
                     );
+
+                    // Re-attach the status so consumers can understand convergence state.
+                    $plan['status'] = $status;
                 }
                 unset($plan);
 
@@ -226,7 +232,7 @@ class DebtSimulationService
             $remainingBudget = max($remainingBudget, 0.0);
 
             // Allocate any extra budget to targeted debt(s).
-            while ($remainingBudget > 0 && $this->hasBalance($debts)) { // @phpstan-ignore-line
+            while ($remainingBudget > 0 && $this->hasBalance($debts)) {
                 $targetKey = $strategy->selectTargetDebt($debts);
                 if (null === $targetKey) {
                     break;
