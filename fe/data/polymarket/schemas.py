@@ -70,3 +70,14 @@ class ResolutionEvent(BaseModel):
     outcome: Optional[str] = Field(None, description="Winning outcome, if any")
     event_date: date = Field(..., description="Event date used for partitioning")
     category: str = Field(..., description="Market category used for partitioning")
+
+
+class ClarificationResolutionEvent(BaseModel):
+    """Clarification or resolution event for a market."""
+
+    market_id: str = Field(..., description="Polymarket market identifier")
+    timestamp: datetime = Field(..., description="Timestamp of the event")
+    event_type: str = Field(..., description="Type of event: clarification or resolution")
+    message: str = Field(..., description="Event message")
+    event_date: date = Field(..., description="Event date used for partitioning")
+    category: str = Field(..., description="Market category used for partitioning")

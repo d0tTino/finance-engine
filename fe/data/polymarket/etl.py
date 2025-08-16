@@ -79,6 +79,17 @@ def fetch_order_book(market_id: str) -> Dict[str, Any]:
         return {}
 
 
+def fetch_clarification_resolution_events(market_id: str) -> List[Dict[str, Any]]:
+    """Return clarification/resolution events for a market."""
+    try:
+        return _get(
+            f"{BASE_URL}/clarification/resolution-events",
+            {"market": market_id},
+        )
+    except Exception:
+        return []
+
+
 def save_market(market: Dict[str, Any]) -> None:
     event = market.get("events", [{}])[0]
     event_date_str = event.get("endDate") or market.get("endDate")
@@ -95,6 +106,9 @@ def save_market(market: Dict[str, Any]) -> None:
         "market": market,
         "price_history": fetch_price_history(market["id"]),
         "order_book": fetch_order_book(market["id"]),
+        "clarification_resolution_events": fetch_clarification_resolution_events(
+            market["id"]
+        ),
         "resolution": {
             "description": market.get("resolutionDescription"),
             "sources": market.get("resolutionSources"),
