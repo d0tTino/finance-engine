@@ -14,7 +14,11 @@ from typing import Callable, Dict, Iterable, Sequence
 import pandas as pd
 
 
-def _simulate(prices: pd.Series, positions: pd.Series, slippage: float) -> pd.Series:
+def _simulate(
+    prices: pd.Series,
+    positions: pd.Series,
+    slippage: float,
+) -> pd.Series:
     """Compute per-period returns given prices and positions.
 
     Parameters
@@ -82,4 +86,82 @@ def run_backtest(
     return pd.DataFrame(results)
 
 
-__all__ = ["run_backtest"]
+def walk_forward(
+    strategy: Callable[..., pd.Series],
+    data: pd.DataFrame,
+    params: Dict[str, Sequence],
+    window: int,
+    step: int,
+    slippage: float = 0.0,
+) -> pd.DataFrame:
+    """Perform walk-forward evaluation of ``strategy``.
+
+    The data is split into sequential training and testing windows.  For each
+    step, the best parameter combination (by cumulative return) is selected on
+    the training slice and then evaluated on the subsequent test slice.
+    Returns for each evaluation period are compounded to produce a cumulative
+    performance column.
+
+    Parameters
+    ----------
+    strategy:
+        Callable accepting ``data`` and parameter values and returning a
+        Series of positions.
+    data:
+        Input DataFrame containing at least a ``price`` column.
+    params:
+        Mapping from parameter name to a sequence of values to search.
+    window:
+        Size of the rolling training window.
+    step:
+        Number of periods in each test slice and the amount to advance the
+        window by after each iteration.
+    slippage:
+        Fractional slippage cost applied to position changes.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with one row per test window containing the chosen
+        parameters, the window's return and cumulative compounded return up to
+        that point.
+    """
+
+    if "price" not in data.columns:
+        raise ValueError("data must contain a 'price' column")
+
+    names = list(params)
+    results: list[dict[str, float]] = []
+    cumulative = 1.0
+
+    for start in range(window, len(data), step):
+        train = data.iloc[start - window:start]
+        test = data.iloc[start:start + step]
+        if test.empty:
+            break
+
+        train_perf = run_backtest(strategy, train, params, slippage)
+        if train_perf.empty:
+            continue
+        best_idx = train_perf["return"].idxmax()
+        best_params = {name: train_perf.loc[best_idx, name] for name in names}
+
+        positions = strategy(test, **best_params)
+        returns = _simulate(test["price"], positions, slippage)
+        window_return = (1.0 + returns).prod() - 1.0
+        cumulative *= 1.0 + window_return
+
+        results.append(
+            {
+                **best_params,
+                "start": test.index[0],
+                "end": test.index[-1],
+                "return": window_return,
+                "cumulative": cumulative - 1.0,
+            }
+        )
+
+    return pd.DataFrame(results)
+
+
+__all__ = ["run_backtest", "walk_forward"]
