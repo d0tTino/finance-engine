@@ -118,8 +118,6 @@ class DebtSimulationService
 
                 $bestInterest  = $plans[0]['total_interest'] ?? 0.0;
                 $bestMonths    = $plans[0]['months'] ?? 0;
-                $interestList  = array_column($plans, 'total_interest');
-                $worstInterest = $interestList !== [] ? max($interestList) : 0.0;
 
                 foreach ($plans as $i => &$plan) {
                     // Preserve the original status in case additional metrics overwrite keys.
@@ -128,7 +126,7 @@ class DebtSimulationService
                     $plan['rank']                  = $i + 1;
                     $plan['is_optimal']            = 0 === $i;
                     $plan['total_interest']        = (float) $plan['total_interest'];
-                    $plan['interest_saved']        = $worstInterest - $plan['total_interest'];
+                    $plan['interest_saved']        = $bestInterest - $plan['total_interest'];
                     $plan['time_to_payoff_months'] = $plan['months'];
                     $plan['cost_of_deviation']     = [
                         'currency'    => $plan['total_interest'] - $bestInterest,

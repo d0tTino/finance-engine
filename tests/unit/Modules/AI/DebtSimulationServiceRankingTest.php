@@ -39,9 +39,11 @@ final class DebtSimulationServiceRankingTest extends TestCase
         $bestMonths   = $plans[0]['months'];
 
         foreach ($plans as $plan) {
-            $expectedCurrency = $plan['total_interest'] - $bestInterest;
-            $expectedMonths   = $plan['months'] - $bestMonths;
+            $expectedCurrency      = $plan['total_interest'] - $bestInterest;
+            $expectedMonths        = $plan['months'] - $bestMonths;
+            $expectedInterestSaved = $bestInterest - $plan['total_interest'];
 
+            self::assertEqualsWithDelta($expectedInterestSaved, $plan['interest_saved'], 0.0001);
             self::assertEqualsWithDelta($expectedCurrency, $plan['cost_of_deviation']['currency'], 0.0001);
             self::assertEquals($expectedMonths, $plan['cost_of_deviation']['time_months']);
 
