@@ -77,7 +77,7 @@ Simulation results are cached per user to speed up repeated requests. The cache 
         ]
       },
       "metrics": {
-        "interest_saved": 61.88,
+        "interest_saved": 0,
         "time_to_payoff_months": 34,
         "total_interest_paid": 516.09,
         "monthly_cash_flow": [
@@ -112,7 +112,7 @@ Simulation results are cached per user to speed up repeated requests. The cache 
         ]
       },
       "metrics": {
-        "interest_saved": 0,
+        "interest_saved": -61.88,
         "time_to_payoff_months": 36,
         "total_interest_paid": 577.97,
         "monthly_cash_flow": [
@@ -143,7 +143,7 @@ Simulation results are cached per user to speed up repeated requests. The cache 
     - `strategy` – Name of the heuristic applied (`avalanche`, `snowball` or `balanced`).
     - `schedule` – Monthly breakdown of payments, balances, interest and cash flow.
   - `metrics` – Aggregated plan results:
-    - `interest_saved` – Interest saved compared to the worst plan.
+    - `interest_saved` – Interest saved compared to the optimal plan (negative values indicate extra interest).
     - `time_to_payoff_months` – Number of months to clear all debts.
     - `total_interest_paid` – Total interest paid over the lifetime of the plan.
     - `monthly_cash_flow` – Remaining budget for each month.
@@ -154,7 +154,7 @@ Simulation results are cached per user to speed up repeated requests. The cache 
     - `strategy_explanation` – Description of how the payoff strategy works.
     - `ranking_heuristic` – Ranking algorithm applied to the plans.
     - `ranking_reason` – Explanation of why the plan received its rank.
-    - `tradeoffs` – Summary of extra cost and time versus the optimal plan.
+    - `tradeoffs` – Summary of lost interest savings and extra time versus the optimal plan.
 
 ## Heuristics
 
