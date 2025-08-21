@@ -35,17 +35,19 @@ final class DebtSimulationServiceRankingTest extends TestCase
         usort($sorted, static fn (array $a, array $b): int => [$a['total_interest'], $a['months']] <=> [$b['total_interest'], $b['months']]);
         self::assertSame($sorted, $plans);
 
-        $bestInterest = $plans[0]['total_interest'];
-        $bestMonths   = $plans[0]['months'];
+        $bestInterest     = $plans[0]['total_interest'];
+        $bestMonths       = $plans[0]['months'];
+        $baselineInterest = max(array_column($plans, 'total_interest'));
 
         foreach ($plans as $plan) {
             $expectedCurrency      = $plan['total_interest'] - $bestInterest;
             $expectedMonths        = $plan['months'] - $bestMonths;
-            $expectedInterestSaved = $bestInterest - $plan['total_interest'];
+            $expectedInterestSaved = $baselineInterest - $plan['total_interest'];
 
             self::assertEqualsWithDelta($expectedInterestSaved, $plan['interest_saved'], 0.0001);
             self::assertEqualsWithDelta($expectedCurrency, $plan['cost_of_deviation']['currency'], 0.0001);
             self::assertEquals($expectedMonths, $plan['cost_of_deviation']['time_months']);
+            self::assertGreaterThanOrEqual(0.0, $plan['interest_saved']);
 
             self::assertSame(DebtSimulationService::RANKING_HEURISTIC, $plan['meta']['ranking_heuristic']);
             self::assertIsString($plan['meta']['ranking_reason']);
