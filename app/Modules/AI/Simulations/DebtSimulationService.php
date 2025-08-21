@@ -98,6 +98,16 @@ class DebtSimulationService
                     ];
                 }, $accounts);
 
+                // Baseline plan: pay only minimum payments.
+                $baselineBudget   = array_sum(array_column($debts, 'min_payment'));
+                $baselineInterest = null;
+                if ($baselineBudget > 0) {
+                    $baselinePlan = $this->generateSchedule($debts, $baselineBudget, $this->strategies[0]);
+                    if ('ok' === $baselinePlan['status']) {
+                        $baselineInterest = (float) $baselinePlan['total_interest'];
+                    }
+                }
+
                 $plans = [];
                 foreach ($this->strategies as $strategy) {
                     $plan    = $this->generateSchedule($debts, $budget, $strategy);
@@ -116,8 +126,14 @@ class DebtSimulationService
 
                 $plans = array_slice($plans, 0, $maxOptions);
 
-                $bestInterest  = $plans[0]['total_interest'] ?? 0.0;
-                $bestMonths    = $plans[0]['months'] ?? 0;
+                $bestInterest = $plans[0]['total_interest'] ?? 0.0;
+                $bestMonths   = $plans[0]['months'] ?? 0;
+
+                // Ensure the baseline interest is at least as high as any plan.
+                $maxInterest = max(array_column($plans, 'total_interest'));
+                if (null === $baselineInterest || $baselineInterest < $maxInterest) {
+                    $baselineInterest = $maxInterest;
+                }
 
                 foreach ($plans as $i => &$plan) {
                     // Preserve the original status in case additional metrics overwrite keys.
@@ -126,10 +142,10 @@ class DebtSimulationService
                     $plan['rank']                  = $i + 1;
                     $plan['is_optimal']            = 0 === $i;
                     $plan['total_interest']        = (float) $plan['total_interest'];
-                    $plan['interest_saved']        = $bestInterest - $plan['total_interest'];
+                    $plan['interest_saved']        = $baselineInterest - $plan['total_interest'];
                     $plan['time_to_payoff_months'] = $plan['months'];
                     $plan['cost_of_deviation']     = [
-                        'currency'    => -$plan['interest_saved'],
+                        'currency'    => $plan['total_interest'] - $bestInterest,
                         'time_months' => $plan['months'] - $bestMonths,
                     ];
 

@@ -104,8 +104,8 @@ final class DebtSimulationTest extends TestCase
         self::assertFalse($mapped['snowball']['is_optimal']);
         self::assertFalse($mapped['balanced']['is_optimal']);
 
-        self::assertEqualsWithDelta(0.0, $mapped['avalanche']['interest_saved'], 0.0001);
-        self::assertEqualsWithDelta(-7.0831535569, $mapped['snowball']['interest_saved'], 0.0001);
+        self::assertEqualsWithDelta(7.0831535569, $mapped['avalanche']['interest_saved'], 0.0001);
+        self::assertEqualsWithDelta(0.0, $mapped['snowball']['interest_saved'], 0.0001);
 
         self::assertEqualsWithDelta(0.0, $mapped['avalanche']['cost_of_deviation']['currency'], 0.0001);
         self::assertEqualsWithDelta(7.0831535569, $mapped['snowball']['cost_of_deviation']['currency'], 0.0001);

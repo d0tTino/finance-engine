@@ -158,13 +158,13 @@ final class DebtSimulationTest extends TestCase
                 'account_id'      => (string) $a1->uuid,
                 'balance'         => 100.0,
                 'apr'             => 5.0,
-                'minimum_payment' => 0.0,
+                'minimum_payment' => 10.0,
             ],
             [
                 'account_id'      => (string) $a2->uuid,
                 'balance'         => 200.0,
                 'apr'             => 3.0,
-                'minimum_payment' => 0.0,
+                'minimum_payment' => 10.0,
             ],
         ];
 
@@ -197,6 +197,10 @@ final class DebtSimulationTest extends TestCase
 
         self::assertTrue(Str::isUuid($response->json('analysis_id')));
         $actions = $response->json('proposed_actions');
+        foreach ($actions as $action) {
+            self::assertGreaterThanOrEqual(0.0, $action['metrics']['interest_saved']);
+        }
+        self::assertGreaterThan(0.0, $actions[0]['metrics']['interest_saved']);
         self::assertSame(1, $actions[0]['rank']);
         self::assertArrayHasKey('strategy_explanation', $actions[0]['meta']);
     }
