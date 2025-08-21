@@ -52,6 +52,12 @@ final class DebtSimulationServiceRankingTest extends TestCase
             self::assertSame(DebtSimulationService::RANKING_HEURISTIC, $plan['meta']['ranking_heuristic']);
             self::assertIsString($plan['meta']['ranking_reason']);
             self::assertIsString($plan['meta']['tradeoffs']);
+            self::assertIsArray($plan['meta']['heuristic_scores']);
+            self::assertArrayHasKey('total_interest', $plan['meta']['heuristic_scores']);
+            self::assertArrayHasKey('months', $plan['meta']['heuristic_scores']);
+            self::assertIsArray($plan['meta']['tradeoff_drivers']);
+            self::assertArrayHasKey('currency', $plan['meta']['tradeoff_drivers']);
+            self::assertArrayHasKey('time_months', $plan['meta']['tradeoff_drivers']);
         }
     }
 
