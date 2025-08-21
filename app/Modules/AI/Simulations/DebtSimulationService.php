@@ -114,7 +114,7 @@ class DebtSimulationService
                     $plans[] = array_merge(
                         [
                             'strategy' => $strategy->getName(),
-                            'meta'     => ['strategy_explanation' => $strategy->getDescription()],
+                            'meta'     => ['strategy_explanation' => $strategy->getExplanation()],
                         ],
                         $plan
                     );
@@ -161,7 +161,14 @@ class DebtSimulationService
                         $plan['meta'],
                         [
                             'ranking_heuristic' => self::RANKING_HEURISTIC,
-                            'ranking_reason'    => $plan['is_optimal'] ? 'maximizes interest savings' : 'less interest saved or longer duration',
+                            'heuristic_scores'  => [
+                                'total_interest' => $plan['total_interest'],
+                                'months'         => $plan['months'],
+                            ],
+                            'tradeoff_drivers'  => $plan['cost_of_deviation'],
+                            'ranking_reason'    => $plan['is_optimal']
+                                ? 'maximizes interest savings'
+                                : 'less interest saved or longer duration',
                             'tradeoffs'         => $tradeoffString,
                         ]
                     );

@@ -11,7 +11,7 @@ interface StrategyInterface
     /**
      * Human-readable explanation of how the strategy allocates extra payments.
      */
-    public function getDescription(): string;
+    public function getExplanation(): string;
 
     /** Reset any internal state before simulating a new schedule. */
     public function reset(): void;

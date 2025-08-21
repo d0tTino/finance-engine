@@ -11,7 +11,7 @@ class SnowballStrategy implements StrategyInterface
         return 'snowball';
     }
 
-    public function getDescription(): string
+    public function getExplanation(): string
     {
         return 'Pays extra toward the debt with the smallest balance first to build momentum.';
     }

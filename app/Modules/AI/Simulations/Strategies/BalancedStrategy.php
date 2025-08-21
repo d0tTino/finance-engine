@@ -30,7 +30,7 @@ class BalancedStrategy implements StrategyInterface
         return 'balanced';
     }
 
-    public function getDescription(): string
+    public function getExplanation(): string
     {
         return 'Distributes extra payments proportionally based on each debt\'s remaining balance.';
     }
