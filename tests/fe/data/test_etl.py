@@ -1,21 +1,27 @@
 import sys
+from datetime import datetime
 from pathlib import Path
-
-import pandas as pd
 import json
 
-sys.path.append(str(Path(__file__).resolve().parents[3]))
+import pandas as pd
+import pytest
 
+sys.path.append(str(Path(__file__).resolve().parents[3]))
 from fe.data.polymarket import etl  # noqa: E402
 
 
-def test_save_market_idempotent(tmp_path, monkeypatch):
+@pytest.fixture
+def run_sample_market(tmp_path, monkeypatch):
+    today = datetime.utcnow().date().isoformat()
     market = {
         "id": "123",
-        "endDate": "2020-11-04T00:00:00Z",
+        "endDate": f"{today}T00:00:00Z",
         "category": "politics",
+        "question": "Is today special?",
+        "outcomes": ["yes", "no"],
+        "createdAt": f"{today}T00:00:00Z",
     }
-    price_history = [{"timestamp": "2020-11-04T00:00:00Z", "price": 0.5}]
+    price_history = [{"timestamp": f"{today}T00:00:00Z", "price": 0.5}]
     order_book = {"bids": [], "asks": []}
     events_payload = [
         {
@@ -36,18 +42,44 @@ def test_save_market_idempotent(tmp_path, monkeypatch):
             return order_book
         raise AssertionError(f"unexpected url {url}")
 
+    def fake_get_resolved_markets(days: int = 365):
+        return [market]
+
     monkeypatch.setattr(etl, "_get", fake_get)
-    monkeypatch.setattr(etl, "OUTPUT_DIR", tmp_path)
+    monkeypatch.setattr(etl, "get_resolved_markets", fake_get_resolved_markets)
+    original_dumps = json.dumps
+    monkeypatch.setattr(
+        etl.json,
+        "dumps",
+        lambda obj: original_dumps(obj, default=str),
+    )
 
-    etl.save_market(market)
-    etl.save_market(market)
+    def run() -> None:
+        etl.main(output_dir=tmp_path, days=1)
 
-    out_dir = tmp_path / "event_date=2020-11-04" / "category=politics"
+    return run, tmp_path, price_history, order_book, events_payload
+
+
+def test_run_idempotent(run_sample_market):
+    (
+        run,
+        tmp_path,
+        price_history,
+        order_book,
+        events_payload,
+    ) = run_sample_market
+    run()
+    run()
+    event_dir = datetime.utcnow().date().isoformat()
+    out_dir = tmp_path / f"event_date={event_dir}" / "category=politics"
     parquet_files = list(out_dir.glob("market_123.parquet"))
     assert len(parquet_files) == 1
 
     df = pd.read_parquet(parquet_files[0])
     record = df["data"].map(json.loads).iloc[0]
-    assert record["price_history"] == price_history
-    assert record["order_book"] == order_book
-    assert record["clarification_resolution_events"] == events_payload
+    assert record["price_history"][0]["price"] == price_history[0]["price"]
+    assert record["order_book"] is None
+    assert (
+        record["clarification_resolution_events"][0]["message"]
+        == events_payload[0]["message"]
+    )

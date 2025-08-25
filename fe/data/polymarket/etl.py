@@ -9,6 +9,7 @@ already been processed.
 """
 from __future__ import annotations
 
+import argparse
 import json
 import os
 from datetime import datetime, timedelta
@@ -239,11 +240,45 @@ def save_market(
     df.to_parquet(out_file, index=False)
 
 
-def main(output_dir: Optional[Path] = None) -> None:
-    markets = get_resolved_markets()
+def assert_partitions(output_dir: Path, days: int = 365) -> None:
+    """Ensure output directory has partitions for the last ``days`` days."""
+    today = datetime.utcnow().date()
+    missing: List[str] = []
+    for i in range(days):
+        day = today - timedelta(days=i)
+        event_dir = output_dir / f"event_date={day.isoformat()}"
+        if not event_dir.exists() or not any(event_dir.glob("category=*")):
+            missing.append(day.isoformat())
+    if missing:
+        raise AssertionError(
+            "missing partitions for: " + ", ".join(sorted(missing))
+        )
+
+
+def main(output_dir: Optional[Path] = None, days: int = 365) -> None:
+    markets = get_resolved_markets(days)
     for market in markets:
         save_market(market, output_dir)
+    assert_partitions(output_dir or _DEFAULT_OUTPUT_DIR, days)
+
+
+def cli() -> None:
+    parser = argparse.ArgumentParser(description="Polymarket ETL")
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=None,
+        help="Directory for output parquet files",
+    )
+    parser.add_argument(
+        "--days",
+        type=int,
+        default=365,
+        help="Number of days of resolved markets to process",
+    )
+    args = parser.parse_args()
+    main(args.output_dir, args.days)
 
 
 if __name__ == "__main__":
-    main()
+    cli()
