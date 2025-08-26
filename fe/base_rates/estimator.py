@@ -14,6 +14,7 @@ from typing import Dict, Tuple
 
 import numpy as np
 import pandas as pd
+import yaml
 from sklearn.isotonic import IsotonicRegression
 
 _DATA: pd.DataFrame | None = None
@@ -161,3 +162,64 @@ def evaluate_brier_score(
     if flat_score > 0:
         improvement = 100.0 * (flat_score - iso_score) / flat_score
     return iso_score, improvement
+
+
+def evaluate_brier_by_taxonomy(
+    test_size: float = 0.2, random_state: int | None = 0
+) -> Dict[str, Tuple[float, float]]:
+    """Evaluate Brier scores for each taxonomy bucket.
+
+    Taxonomy categories are defined in ``taxonomy.yaml``. For each
+    top-level category present in the historical data, this function
+    computes the Brier score of the isotonic regression predictions and
+    the percentage improvement over a flat ``0.5`` prior.
+
+    Parameters
+    ----------
+    test_size:
+        Fraction of each category's data to reserve for validation.
+    random_state:
+        Seed used when shuffling data prior to the split.
+
+    Returns
+    -------
+    Dict[str, Tuple[float, float]]
+        Mapping of taxonomy bucket to ``(score, improvement)``.
+    """
+
+    _load_data()
+    if _DATA is None:
+        raise RuntimeError("historical data failed to load")
+
+    taxonomy_path = Path(__file__).with_name("taxonomy.yaml")
+    taxonomy = yaml.safe_load(taxonomy_path.read_text()) or {}
+
+    results: Dict[str, Tuple[float, float]] = {}
+    rng = np.random.default_rng(random_state)
+
+    for bucket in taxonomy.keys():
+        df_bucket = _DATA[_DATA["category"] == bucket]
+        if len(df_bucket) < 2:
+            # Need at least one point for training and one for testing.
+            continue
+
+        df_bucket = df_bucket.sample(
+            frac=1, random_state=rng.integers(0, 2**32)
+        )
+        split = int(len(df_bucket) * (1 - test_size))
+        split = min(max(split, 1), len(df_bucket) - 1)
+        train = df_bucket.iloc[:split]
+        test = df_bucket.iloc[split:]
+
+        model = IsotonicRegression(out_of_bounds="clip")
+        model.fit(train["horizon_days"], train["outcome"])
+
+        preds = model.predict(test["horizon_days"])
+        iso_score = float(np.mean((preds - test["outcome"]) ** 2))
+        flat_score = float(np.mean((0.5 - test["outcome"]) ** 2))
+        improvement = 0.0
+        if flat_score > 0:
+            improvement = 100.0 * (flat_score - iso_score) / flat_score
+        results[bucket] = (iso_score, improvement)
+
+    return results
