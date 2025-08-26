@@ -11,6 +11,8 @@ from __future__ import annotations
 from itertools import product
 from typing import Callable, Dict, Iterable, Sequence
 
+import numpy as np
+
 import pandas as pd
 
 
@@ -42,11 +44,46 @@ def _simulate(
     return returns
 
 
+def _compute_metrics(
+    returns: pd.Series,
+    n_shuffles: int,
+    rng: np.random.Generator | None,
+) -> tuple[float, float, float, float]:
+    """Return cumulative performance metrics for ``returns``.
+
+    The p-value is computed via a shuffled-label significance test where the
+    order of returns is randomly permuted ``n_shuffles`` times.  The proportion
+    of shuffled outcomes with a final return greater than or equal to the
+    observed return forms a one-sided p-value.
+    """
+
+    total_return = (1.0 + returns).prod() - 1.0
+    sharpe = 0.0
+    if returns.std() > 0:
+        sharpe = returns.mean() / returns.std() * np.sqrt(252)
+    equity = (1.0 + returns).cumprod()
+    mdd = (equity / equity.cummax() - 1).min()
+
+    p_value = float("nan")
+    if n_shuffles > 0 and rng is not None:
+        shuffled = []
+        arr = returns.to_numpy()
+        for _ in range(n_shuffles):
+            sh_ret = rng.permutation(arr)
+            shuffled.append((1.0 + sh_ret).prod() - 1.0)
+        sh_arr = np.asarray(shuffled)
+        p_value = (np.sum(sh_arr >= total_return) + 1) / (n_shuffles + 1)
+
+    return float(total_return), float(sharpe), float(mdd), float(p_value)
+
+
 def run_backtest(
     strategy: Callable[..., pd.Series],
     data: pd.DataFrame,
     params: Dict[str, Sequence],
     slippage: float = 0.0,
+    n_shuffles: int = 0,
+    seed: int | None = None,
 ) -> pd.DataFrame:
     """Run a strategy over a grid of parameters.
 
@@ -61,13 +98,17 @@ def run_backtest(
         Mapping from parameter name to a sequence of values to search.
     slippage:
         Fractional slippage cost applied to position changes.
+    n_shuffles:
+        Number of shuffled-label trials used to compute the p-value.
+    seed:
+        Optional seed for the random number generator used in shuffling.
 
     Returns
     -------
     pd.DataFrame
         DataFrame where each row corresponds to a parameter combination
-        with an additional ``return`` column containing the cumulative
-        return over the run.
+        with additional performance columns ``return``, ``sharpe``,
+        ``max_drawdown`` and ``p_value``.
     """
     if "price" not in data.columns:
         raise ValueError("data must contain a 'price' column")
@@ -76,12 +117,23 @@ def run_backtest(
     grid: Iterable[Sequence] = product(*params.values()) if names else [()]
 
     results = []
+    rng = np.random.default_rng(seed) if n_shuffles > 0 else None
     for combo in grid:
         kwargs = dict(zip(names, combo))
         positions = strategy(data, **kwargs)
         returns = _simulate(data["price"], positions, slippage)
-        total_return = (1.0 + returns).prod() - 1.0
-        results.append({**kwargs, "return": total_return})
+        total_return, sharpe, mdd, p_value = _compute_metrics(
+            returns, n_shuffles, rng
+        )
+        results.append(
+            {
+                **kwargs,
+                "return": total_return,
+                "sharpe": sharpe,
+                "max_drawdown": mdd,
+                "p_value": p_value,
+            }
+        )
 
     return pd.DataFrame(results)
 

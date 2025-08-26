@@ -6,7 +6,7 @@ import pytest
 
 sys.path.append(str(Path(__file__).resolve().parents[3]))
 
-from fe.strategies import walk_forward  # noqa: E402
+from fe.strategies import run_backtest, walk_forward  # noqa: E402
 
 
 def buy_and_hold(_data):
@@ -37,3 +37,18 @@ def test_walk_forward_windowing_and_aggregation():
         running *= 1 + r
         cumulative.append(running - 1)
     assert result["cumulative"].tolist() == pytest.approx(cumulative, rel=1e-9)
+
+
+def test_run_backtest_metrics():
+    df = pd.DataFrame({"price": [1.0, 1.2, 1.1, 1.3]})
+    result = run_backtest(buy_and_hold, df, {}, n_shuffles=10, seed=0)
+    assert {
+        "return",
+        "sharpe",
+        "max_drawdown",
+        "p_value",
+    }.issubset(result.columns)
+    row = result.iloc[0]
+    assert row["return"] == pytest.approx(0.3, rel=1e-9)
+    assert row["max_drawdown"] <= 0
+    assert 0 <= row["p_value"] <= 1
