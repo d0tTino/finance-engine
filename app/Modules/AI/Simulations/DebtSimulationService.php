@@ -108,29 +108,38 @@ class DebtSimulationService
                     }
                 }
 
-                $plans = [];
+                $convergingPlans    = [];
+                $nonConvergingPlans = [];
                 foreach ($this->strategies as $strategy) {
-                    $plan    = $this->generateSchedule($debts, $budget, $strategy);
-                    $plans[] = array_merge(
+                    $plan     = $this->generateSchedule($debts, $budget, $strategy);
+                    $fullPlan = array_merge(
                         [
                             'strategy' => $strategy->getName(),
                             'meta'     => ['strategy_explanation' => $strategy->getExplanation()],
                         ],
                         $plan
                     );
+                    if (($fullPlan['status'] ?? 'ok') === 'non_converging') {
+                        $nonConvergingPlans[] = $fullPlan;
+                    } else {
+                        $convergingPlans[] = $fullPlan;
+                    }
                 }
 
-                usort($plans, static function (array $a, array $b): int {
+                usort($convergingPlans, static function (array $a, array $b): int {
                     return [$a['total_interest'], $a['months']] <=> [$b['total_interest'], $b['months']];
                 });
 
-                $plans = array_slice($plans, 0, $maxOptions);
+                $convergingPlans = array_slice($convergingPlans, 0, $maxOptions);
 
-                $bestInterest = $plans[0]['total_interest'] ?? 0.0;
-                $bestMonths   = $plans[0]['months'] ?? 0;
+                $plans = array_merge($convergingPlans, $nonConvergingPlans);
 
-                // Ensure the baseline interest is at least as high as any plan.
-                $maxInterest = max(array_column($plans, 'total_interest'));
+                $bestInterest = $convergingPlans[0]['total_interest'] ?? ($plans[0]['total_interest'] ?? 0.0);
+                $bestMonths   = $convergingPlans[0]['months'] ?? ($plans[0]['months'] ?? 0);
+
+                // Ensure the baseline interest is at least as high as any converging plan.
+                $interestPool = [] !== $convergingPlans ? $convergingPlans : $plans;
+                $maxInterest  = [] === $interestPool ? 0.0 : max(array_column($interestPool, 'total_interest'));
                 if (null === $baselineInterest || $baselineInterest < $maxInterest) {
                     $baselineInterest = $maxInterest;
                 }
@@ -140,7 +149,7 @@ class DebtSimulationService
                     $status = $plan['status'] ?? 'ok';
 
                     $plan['rank']                  = $i + 1;
-                    $plan['is_optimal']            = 0 === $i;
+                    $plan['is_optimal']            = 0 === $i && 'ok' === $status;
                     $plan['total_interest']        = (float) $plan['total_interest'];
                     $plan['interest_saved']        = $baselineInterest - $plan['total_interest'];
                     $plan['time_to_payoff_months'] = $plan['months'];
@@ -157,6 +166,10 @@ class DebtSimulationService
                             $plan['cost_of_deviation']['time_months']
                         );
 
+                    $rankingReason = $plan['is_optimal']
+                        ? 'maximizes interest savings'
+                        : ('non_converging' === $status ? 'plan does not converge' : 'less interest saved or longer duration');
+
                     $plan['meta'] = array_merge(
                         $plan['meta'],
                         [
@@ -166,9 +179,7 @@ class DebtSimulationService
                                 'months'         => $plan['months'],
                             ],
                             'tradeoff_drivers'  => $plan['cost_of_deviation'],
-                            'ranking_reason'    => $plan['is_optimal']
-                                ? 'maximizes interest savings'
-                                : 'less interest saved or longer duration',
+                            'ranking_reason'    => $rankingReason,
                             'tradeoffs'         => $tradeoffString,
                         ]
                     );

@@ -204,4 +204,89 @@ final class DebtSimulationTest extends TestCase
         self::assertSame(1, $actions[0]['rank']);
         self::assertArrayHasKey('strategy_explanation', $actions[0]['meta']);
     }
+
+    public function testNonConvergingPlanIsNotOptimal(): void
+    {
+        Cache::setDefaultDriver('file');
+        putenv('CACHE_DRIVER=file');
+        Cache::flush();
+        $this->withoutMiddleware([Authenticate::class, 'auth:api', 'auth:api,sanctum', EnsureFrontendRequestsAreStateful::class, OpaMiddleware::class]);
+        config(['auth.defaults.guard' => 'web']);
+
+        $this->ensureUuidColumns();
+
+        $user = User::create(['email' => 'user@example.com', 'password' => 'secret']);
+        CreatesGroupMemberships::createGroupMembership($user);
+        $user->refresh();
+        if ($user->uuid === null) {
+            $user->uuid = (string) Str::uuid();
+            $user->save();
+            $user->refresh();
+        }
+        $this->be($user);
+
+        $type = AccountType::where('type', AccountTypeEnum::DEBT->value)->first();
+        $a1   = Account::create([
+            'user_id'         => $user->id,
+            'user_group_id'   => $user->user_group_id,
+            'account_type_id' => $type->id,
+            'name'            => 'High APR',
+            'active'          => true,
+        ]);
+        $a1->refresh();
+        if ($a1->uuid === null) {
+            $a1->uuid = (string) Str::uuid();
+            $a1->save();
+            $a1->refresh();
+        }
+        $a2 = Account::create([
+            'user_id'         => $user->id,
+            'user_group_id'   => $user->user_group_id,
+            'account_type_id' => $type->id,
+            'name'            => 'Low APR',
+            'active'          => true,
+        ]);
+        $a2->refresh();
+        if ($a2->uuid === null) {
+            $a2->uuid = (string) Str::uuid();
+            $a2->save();
+            $a2->refresh();
+        }
+
+        $accounts = [
+            [
+                'account_id'      => (string) $a1->uuid,
+                'balance'         => 1000.0,
+                'apr'             => 120.0,
+                'minimum_payment' => 0.0,
+            ],
+            [
+                'account_id'      => (string) $a2->uuid,
+                'balance'         => 100.0,
+                'apr'             => 0.0,
+                'minimum_payment' => 0.0,
+            ],
+        ];
+
+        $payload = [
+            'user_id'        => (string) $user->uuid,
+            'group_id'       => null,
+            'accounts'       => $accounts,
+            'monthly_budget' => 150.0,
+            'max_options'    => 3,
+        ];
+
+        $response = $this->postJson('/api/v1/simulations/debt', $payload)->assertOk();
+
+        $actions = $response->json('proposed_actions');
+        self::assertSame('ok', $actions[0]['plan']['status']);
+        self::assertTrue($actions[0]['is_optimal']);
+
+        foreach ($actions as $action) {
+            if ($action['plan']['status'] === 'non_converging') {
+                self::assertFalse($action['is_optimal']);
+                self::assertGreaterThan(1, $action['rank']);
+            }
+        }
+    }
 }
