@@ -4,6 +4,7 @@ import sys
 sys.path.append(str(pathlib.Path(__file__).resolve().parents[1]))
 
 import pandas as pd  # noqa: E402
+import pytest  # noqa: E402
 from fe.features.drift import rolling_drift  # noqa: E402
 
 
@@ -26,3 +27,9 @@ def test_drift_flat():
     expected = pd.Series([float("nan"), float("nan"), 0.0, 0.0])
     result = rolling_drift(prices, window=2)
     pd.testing.assert_series_equal(result, expected)
+
+
+def test_drift_invalid_window():
+    prices = pd.Series([1, 2, 3])
+    with pytest.raises(ValueError):
+        rolling_drift(prices, window=0)

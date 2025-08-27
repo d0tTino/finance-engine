@@ -14,3 +14,7 @@ def test_symmetric_market_has_zero_skew() -> None:
 def test_skew_is_normalized() -> None:
     assert price_skew(1.0, 0.0) == approx(1)
     assert price_skew(0.0, 1.0) == approx(-1)
+
+
+def test_skew_zero_prices() -> None:
+    assert price_skew(0.0, 0.0) == approx(0)
