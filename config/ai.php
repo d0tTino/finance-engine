@@ -6,5 +6,6 @@ return [
         \FireflyIII\Modules\AI\Simulations\Strategies\AvalancheStrategy::class,
         \FireflyIII\Modules\AI\Simulations\Strategies\SnowballStrategy::class,
         \FireflyIII\Modules\AI\Simulations\Strategies\BalancedStrategy::class,
+        \FireflyIII\Modules\AI\Simulations\Strategies\MlStrategy::class,
     ],
 ];
