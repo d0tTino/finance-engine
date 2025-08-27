@@ -38,6 +38,8 @@ final class DebtSimulationTest extends TestCase
         foreach ($plans as $plan) {
             self::assertArrayHasKey('schedule', $plan);
             self::assertIsArray($plan['schedule']);
+            self::assertArrayHasKey('recommendations', $plan);
+            self::assertIsArray($plan['recommendations']);
             self::assertArrayHasKey('cost_of_deviation', $plan);
             self::assertArrayHasKey('currency', $plan['cost_of_deviation']);
             self::assertArrayHasKey('time_months', $plan['cost_of_deviation']);
@@ -85,6 +87,8 @@ final class DebtSimulationTest extends TestCase
         foreach ($plans as $plan) {
             self::assertArrayHasKey('schedule', $plan);
             self::assertIsArray($plan['schedule']);
+            self::assertArrayHasKey('recommendations', $plan);
+            self::assertIsArray($plan['recommendations']);
             self::assertArrayHasKey('cost_of_deviation', $plan);
             self::assertArrayHasKey('currency', $plan['cost_of_deviation']);
             self::assertArrayHasKey('time_months', $plan['cost_of_deviation']);
