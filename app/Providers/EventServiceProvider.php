@@ -204,6 +204,9 @@ class EventServiceProvider extends ServiceProvider
             'eloquent.deleted: FireflyIII\Models\Account' => [
                 FlushDebtSimulationCache::class,
             ],
+            'eloquent.deleted: FireflyIII\User' => [
+                FlushDebtSimulationCache::class,
+            ],
 
             // bill related events:
             WarnUserAboutBill::class               => [
