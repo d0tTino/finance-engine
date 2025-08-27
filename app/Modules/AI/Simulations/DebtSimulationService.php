@@ -203,11 +203,22 @@ class DebtSimulationService
             return $debt;
         }, $debts);
 
-        $schedule          = [];
-        $totalInterest     = 0.0;
-        $month             = 0;
-        $cashFlowTimeline  = [];
-        $nonConverging     = false;
+        $recommendations   = [];
+        foreach ($debts as $debt) {
+            if ($debt['rate'] >= 0.10) {
+                $recommendations[] = sprintf(
+                    'Consider refinancing %s to lower the %.2f%% APR.',
+                    $debt['name'],
+                    $debt['rate'] * 100
+                );
+            }
+        }
+
+        $schedule         = [];
+        $totalInterest    = 0.0;
+        $month            = 0;
+        $cashFlowTimeline = [];
+        $nonConverging    = false;
 
         $strategy->reset();
 
@@ -301,6 +312,7 @@ class DebtSimulationService
             'total_interest'    => $totalInterest,
             'months'            => $month,
             'monthly_cash_flow' => $cashFlowTimeline,
+            'recommendations'   => $recommendations,
             'status'            => $nonConverging ? 'non_converging' : 'ok',
         ];
     }

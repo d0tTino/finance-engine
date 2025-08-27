@@ -74,6 +74,9 @@ Simulation results are cached per user to speed up repeated requests. The cache 
             "cash_flow": 0
           }
 
+        ],
+        "recommendations": [
+          "Consider refinancing Loan1 to lower the 10.00% APR."
         ]
       },
       "metrics": {
@@ -109,6 +112,9 @@ Simulation results are cached per user to speed up repeated requests. The cache 
             "cash_flow": 0
           }
 
+        ],
+        "recommendations": [
+          "Consider refinancing Loan1 to lower the 10.00% APR."
         ]
       },
       "metrics": {
@@ -142,6 +148,7 @@ Simulation results are cached per user to speed up repeated requests. The cache 
   - `plan` – Detailed strategy output:
     - `strategy` – Name of the heuristic applied (`avalanche`, `snowball` or `balanced`).
     - `schedule` – Monthly breakdown of payments, balances, interest and cash flow.
+    - `recommendations` – Array of refinance suggestions derived from the input debts.
   - `metrics` – Aggregated plan results:
     - `interest_saved` – Interest saved compared to the optimal plan (negative values indicate extra interest).
     - `time_to_payoff_months` – Number of months to clear all debts.
