@@ -1,0 +1,21 @@
+name: Python tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Install dependencies
+        run: pip install pandas numpy scikit-learn pytest flake8
+      - name: Lint
+        run: flake8 tests/fe --extend-ignore=E501
+      - name: Run tests
+        run: pytest tests/fe
