@@ -35,3 +35,22 @@ def test_gate_respects_config_file(tmp_path):
     cfg = tmp_path / "config.json"
     cfg.write_text(json.dumps({"MAX_MDD": 0.05}))
     assert not approve(report, config_path=cfg)
+
+
+def test_gate_uses_default_config():
+    root = Path(__file__).resolve().parents[3]
+    cfg = json.loads((root / "fe" / "signoff" / "config.json").read_text())
+
+    failing = {
+        "sample_size": cfg["MIN_SAMPLE"] - 1,
+        "max_drawdown": cfg["MAX_MDD"] + 0.01,
+        "p_value": cfg["ALPHA"] + 0.01,
+    }
+    assert not approve(failing)
+
+    passing = {
+        "sample_size": cfg["MIN_SAMPLE"],
+        "max_drawdown": cfg["MAX_MDD"],
+        "p_value": cfg["ALPHA"] - 0.01,
+    }
+    assert approve(passing)

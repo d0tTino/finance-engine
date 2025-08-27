@@ -8,8 +8,8 @@ import pandas as pd
 import pytest
 
 
-def test_wheel_dry_run_and_strategy_load() -> None:
-    """Install the built wheel in a dry-run and exercise a strategy."""
+def test_wheel_install_and_strategy_load(tmp_path: Path) -> None:
+    """Install the built wheel into a temporary env and exercise a strategy."""
 
     root = Path(__file__).resolve().parents[2]
     dist = root / "dist"
@@ -18,20 +18,22 @@ def test_wheel_dry_run_and_strategy_load() -> None:
         pytest.skip("No wheel built to test")
     wheel = wheels[0]
 
+    target = tmp_path / "site"
     subprocess.run(
         [
             sys.executable,
             "-m",
             "pip",
             "install",
-            "--dry-run",
             "--no-deps",
+            "--target",
+            str(target),
             str(wheel),
         ],
         check=True,
     )
 
-    sys.path.insert(0, str(wheel))
+    sys.path.insert(0, str(target))
     from fe.strategies.deadline_no import DeadlineNoStrategy
 
     df = pd.DataFrame(
