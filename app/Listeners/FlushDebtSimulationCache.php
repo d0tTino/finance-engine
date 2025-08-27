@@ -6,17 +6,18 @@ namespace FireflyIII\Listeners;
 
 use FireflyIII\Models\Account;
 use FireflyIII\Support\Cache\UserScopedCache;
+use FireflyIII\User;
 
 /**
- * Flushes the user scoped cache for debt simulations when an account changes.
+ * Flushes the user scoped cache for debt simulations when an account or user changes.
  */
 class FlushDebtSimulationCache
 {
-    public function handle(Account $account): void
+    public function handle(Account|User $model): void
     {
-        UserScopedCache::flush(
-            (string) $account->user_id,
-            $account->user_group_id === null ? null : (string) $account->user_group_id,
-        );
+        $userId  = $model instanceof Account ? (string) $model->user_id : (string) $model->id;
+        $groupId = $model->user_group_id === null ? null : (string) $model->user_group_id;
+
+        UserScopedCache::flush($userId, $groupId);
     }
 }
