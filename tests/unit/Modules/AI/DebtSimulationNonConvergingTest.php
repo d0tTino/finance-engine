@@ -27,6 +27,7 @@ final class DebtSimulationNonConvergingTest extends TestCase
         $plans = $service->simulate('user', 'group', $accounts, $budget, 1);
 
         self::assertSame('non_converging', $plans[0]['status']);
+        self::assertFalse($plans[0]['is_optimal']);
         self::assertLessThanOrEqual(DebtSimulationService::MAX_MONTHS, $plans[0]['months']);
     }
 }
