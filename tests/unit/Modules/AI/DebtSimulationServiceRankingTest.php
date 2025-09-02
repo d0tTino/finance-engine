@@ -22,7 +22,11 @@ final class DebtSimulationServiceRankingTest extends TestCase
         Cache::flush();
         config(['ai.ranking_heuristic' => DebtSimulationService::RANKING_HEURISTIC]);
 
-        $service = new DebtSimulationService();
+        $service = new DebtSimulationService([
+            AvalancheStrategy::class,
+            SnowballStrategy::class,
+            BalancedStrategy::class,
+        ]);
         $user    = $this->createAuthenticatedUser();
 
         $accounts = [
@@ -44,6 +48,7 @@ final class DebtSimulationServiceRankingTest extends TestCase
         $bestMonths   = $plans[0]['months'];
         $interestVals = array_column($plans, 'total_interest');
         $baselineInterest = [] === $interestVals ? 0 : max($interestVals);
+
 
         foreach ($plans as $plan) {
             $expectedCurrency      = $plan['total_interest'] - $bestInterest;

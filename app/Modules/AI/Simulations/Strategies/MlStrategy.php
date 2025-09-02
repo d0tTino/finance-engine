@@ -52,7 +52,31 @@ class MlStrategy implements StrategyInterface
      */
     protected function infer(array $features): ?int
     {
-        // Integrate with ML model here.
+        $modelPath = config('ai.ml_model_path');
+
+        if (!is_string($modelPath) || !is_file($modelPath)) {
+            return null;
+        }
+
+        if (!class_exists('\\ONNXRuntime\\InferenceSession')) {
+            return null;
+        }
+
+        try {
+            $session     = new \ONNXRuntime\InferenceSession($modelPath);
+            $result      = $session->run(['input' => $features]);
+            $predictions = $result[0] ?? $result['output'] ?? null;
+
+            if (is_array($predictions) && [] !== $predictions) {
+                $index = array_search(max($predictions), $predictions, true);
+                if (false !== $index) {
+                    return (int) $index;
+                }
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
         return null;
     }
 
