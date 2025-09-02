@@ -21,7 +21,11 @@ final class DebtSimulationServiceRankingTest extends TestCase
     {
         Cache::flush();
 
-        $service = new DebtSimulationService();
+        $service = new DebtSimulationService([
+            AvalancheStrategy::class,
+            SnowballStrategy::class,
+            BalancedStrategy::class,
+        ]);
         $user    = $this->createAuthenticatedUser();
 
         $accounts = [
@@ -37,7 +41,8 @@ final class DebtSimulationServiceRankingTest extends TestCase
 
         $bestInterest     = $plans[0]['total_interest'];
         $bestMonths       = $plans[0]['months'];
-        $baselineInterest = max(array_column($plans, 'total_interest'));
+        $totals           = array_column($plans, 'total_interest');
+        $baselineInterest = max([] !== $totals ? $totals : [0]);
 
         foreach ($plans as $plan) {
             $expectedCurrency      = $plan['total_interest'] - $bestInterest;
