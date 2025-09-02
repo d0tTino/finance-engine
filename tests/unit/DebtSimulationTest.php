@@ -11,6 +11,9 @@ declare(strict_types=1);
 namespace Tests\unit;
 
 use FireflyIII\Modules\AI\Simulations\DebtSimulationService;
+use FireflyIII\Modules\AI\Simulations\Strategies\AvalancheStrategy;
+use FireflyIII\Modules\AI\Simulations\Strategies\BalancedStrategy;
+use FireflyIII\Modules\AI\Simulations\Strategies\SnowballStrategy;
 use Tests\integration\TestCase;
 
 /**
@@ -24,7 +27,11 @@ final class DebtSimulationTest extends TestCase
     public function testGeneratesIdenticalPlansForSingleAccount(): void
     {
         $user = $this->createAuthenticatedUser();
-        $service = new DebtSimulationService();
+        $service = new DebtSimulationService([
+            AvalancheStrategy::class,
+            SnowballStrategy::class,
+            BalancedStrategy::class,
+        ]);
 
         $accounts = [
             ['account_id' => 1, 'balance' => 1000.0, 'apr' => 10.0, 'min_payment' => 0.0],
@@ -75,7 +82,11 @@ final class DebtSimulationTest extends TestCase
     public function testRanksAvalancheAheadOfSnowballWithMetrics(): void
     {
         $user = $this->createAuthenticatedUser();
-        $service = new DebtSimulationService();
+        $service = new DebtSimulationService([
+            AvalancheStrategy::class,
+            SnowballStrategy::class,
+            BalancedStrategy::class,
+        ]);
 
         $accounts = [
             ['account_id' => 1, 'name' => 'Loan1', 'balance' => 1000.0, 'apr' => 10.0, 'min_payment' => 0.0],
@@ -130,7 +141,11 @@ final class DebtSimulationTest extends TestCase
     public function testMetaContainsRankingReasonAndTradeoffs(): void
     {
         $user    = $this->createAuthenticatedUser();
-        $service = new DebtSimulationService();
+        $service = new DebtSimulationService([
+            AvalancheStrategy::class,
+            SnowballStrategy::class,
+            BalancedStrategy::class,
+        ]);
 
         $accounts = [
             ['account_id' => 1, 'name' => 'Loan1', 'balance' => 1000.0, 'apr' => 10.0, 'min_payment' => 0.0],
