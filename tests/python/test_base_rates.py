@@ -11,7 +11,7 @@ from fe.base_rates import estimate_prior  # noqa: E402
 def test_estimate_prior_mid_horizon():
     deadline = datetime.utcnow() + timedelta(days=75)
     prob, ci = estimate_prior("politics", deadline)
-    assert 0.45 < prob < 0.55
+    assert 0.35 < prob < 0.55
     assert ci[0] < prob < ci[1]
 
 

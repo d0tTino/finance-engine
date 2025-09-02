@@ -19,7 +19,7 @@ import pandas as pd
 def _simulate(
     prices: pd.Series,
     positions: pd.Series,
-    slippage: float,
+    slippage: float | Callable[[pd.Series, pd.Series], pd.Series],
 ) -> pd.Series:
     """Compute per-period returns given prices and positions.
 
@@ -30,7 +30,9 @@ def _simulate(
     positions:
         Series of target positions for each period.
     slippage:
-        Fractional cost applied to position changes.
+        Either a fractional cost applied to position changes or a callable
+        returning a per-period cost ``Series`` when given the ``trades`` and
+        ``prices`` series.
 
     Returns
     -------
@@ -40,7 +42,11 @@ def _simulate(
     prices = prices.astype(float)
     pct_change = prices.pct_change().fillna(0.0)
     trades = positions.diff().abs().fillna(0.0)
-    returns = positions.shift().fillna(0.0) * pct_change - slippage * trades
+    if callable(slippage):
+        slip_cost = slippage(trades, prices)
+    else:
+        slip_cost = slippage * trades
+    returns = positions.shift().fillna(0.0) * pct_change - slip_cost
     return returns
 
 
@@ -81,7 +87,7 @@ def run_backtest(
     strategy: Callable[..., pd.Series],
     data: pd.DataFrame,
     params: Dict[str, Sequence],
-    slippage: float = 0.0,
+    slippage: float | Callable[[pd.Series, pd.Series], pd.Series] = 0.0,
     n_shuffles: int = 0,
     seed: int | None = None,
 ) -> pd.DataFrame:
@@ -97,7 +103,9 @@ def run_backtest(
     params:
         Mapping from parameter name to a sequence of values to search.
     slippage:
-        Fractional slippage cost applied to position changes.
+        Either a fractional slippage cost applied to position changes or a
+        callable returning a per-period cost ``Series`` when given the trade
+        sizes and prices.
     n_shuffles:
         Number of shuffled-label trials used to compute the p-value.
     seed:
@@ -144,7 +152,7 @@ def walk_forward(
     params: Dict[str, Sequence],
     window: int,
     step: int,
-    slippage: float = 0.0,
+    slippage: float | Callable[[pd.Series, pd.Series], pd.Series] = 0.0,
 ) -> pd.DataFrame:
     """Perform walk-forward evaluation of ``strategy``.
 
@@ -169,7 +177,9 @@ def walk_forward(
         Number of periods in each test slice and the amount to advance the
         window by after each iteration.
     slippage:
-        Fractional slippage cost applied to position changes.
+        Either a fractional slippage cost applied to position changes or a
+        callable returning a per-period cost ``Series`` when given the trade
+        sizes and prices.
 
     Returns
     -------

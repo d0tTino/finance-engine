@@ -236,7 +236,7 @@ def save_market(
             "sources": market.get("resolutionSources"),
         },
     }
-    df = pd.DataFrame({"data": [json.dumps(record)]})
+    df = pd.DataFrame({"data": [json.dumps(record, default=str)]})
     df.to_parquet(out_file, index=False)
 
 

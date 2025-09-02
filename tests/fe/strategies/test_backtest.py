@@ -29,6 +29,7 @@ def test_run_backtest_no_nulls():
     results = run_backtest(
         threshold_strategy, data, params, slippage=0.01, n_shuffles=5, seed=0
     )
+    assert results.shape[0] == len(params["cutoff"])
     assert set("cutoff return sharpe max_drawdown p_value".split()).issubset(
         results.columns
     )
@@ -49,12 +50,18 @@ def test_walk_forward_no_nulls():
 
 def test_run_backtest_slippage_metrics():
     data = pd.DataFrame({"price": [1.0, 1.1, 1.2, 1.1]})
-    with_slip = run_backtest(flip_strategy, data, {}, slippage=0.01)
+
+    def slip_fn(trades, _prices):
+        return 0.02 * trades
+
+    with_slip = run_backtest(flip_strategy, data, {}, slippage=slip_fn)
     no_slip = run_backtest(flip_strategy, data, {}, slippage=0.0)
 
-    assert with_slip.loc[0, "return"] == pytest.approx(-0.0208, rel=1e-6)
-    assert with_slip.loc[0, "sharpe"] == pytest.approx(-0.654296, rel=1e-6)
-    assert with_slip.loc[0, "max_drawdown"] == pytest.approx(-0.0933333, rel=1e-6)
+    assert with_slip.loc[0, "return"] == pytest.approx(-0.0413818, rel=1e-6)
+    assert with_slip.loc[0, "sharpe"] == pytest.approx(-1.6135718, rel=1e-6)
+    assert with_slip.loc[0, "max_drawdown"] == pytest.approx(
+        -0.1033333, rel=1e-6
+    )
     assert with_slip.loc[0, "return"] < no_slip.loc[0, "return"]
 
 
