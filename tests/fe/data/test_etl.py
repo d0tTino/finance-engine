@@ -51,7 +51,9 @@ def run_sample_market(tmp_path, monkeypatch):
     monkeypatch.setattr(
         etl.json,
         "dumps",
-        lambda obj: original_dumps(obj, default=str),
+        lambda obj, **kwargs: original_dumps(
+            obj, default=kwargs.pop("default", str), **kwargs
+        ),
     )
 
     def run() -> None:

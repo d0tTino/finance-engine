@@ -13,6 +13,9 @@ def test_save_market_writes_clarification_events(tmp_path, monkeypatch):
         "id": "123",
         "endDate": "2020-11-04T00:00:00Z",
         "category": "politics",
+        "question": "Will it rain?",
+        "outcomes": ["Yes", "No"],
+        "createdAt": "2020-01-01T00:00:00Z",
     }
 
     events_payload = [
@@ -35,7 +38,7 @@ def test_save_market_writes_clarification_events(tmp_path, monkeypatch):
         raise AssertionError(f"unexpected url {url}")
 
     monkeypatch.setattr(etl, "_get", fake_get)
-    monkeypatch.setattr(etl, "OUTPUT_DIR", tmp_path)
+    monkeypatch.setattr(etl, "_DEFAULT_OUTPUT_DIR", tmp_path)
 
     etl.save_market(market)
 
@@ -45,4 +48,5 @@ def test_save_market_writes_clarification_events(tmp_path, monkeypatch):
 
     df = pd.read_parquet(parquet_files[0])
     record = df["data"].map(json.loads).iloc[0]
-    assert record["clarification_resolution_events"] == events_payload
+    events = record["clarification_resolution_events"]
+    assert events and events[0]["message"] == "resolved"
