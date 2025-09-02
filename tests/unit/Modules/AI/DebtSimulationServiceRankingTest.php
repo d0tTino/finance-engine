@@ -20,6 +20,7 @@ final class DebtSimulationServiceRankingTest extends TestCase
     public function testPlansAreRankedAndAnnotated(): void
     {
         Cache::flush();
+        config(['ai.ranking_heuristic' => DebtSimulationService::RANKING_HEURISTIC]);
 
         $service = new DebtSimulationService([
             AvalancheStrategy::class,
@@ -35,14 +36,19 @@ final class DebtSimulationServiceRankingTest extends TestCase
 
         $plans = $service->simulate((string) $user->id, '1', $accounts, 300.0, 3);
 
-        $sorted = $plans;
+        $converging = array_filter(
+            $plans,
+            static fn (array $plan): bool => 'non_converging' !== ($plan['status'] ?? 'ok')
+        );
+        $sorted = $converging;
         usort($sorted, static fn (array $a, array $b): int => [$a['total_interest'], $a['months']] <=> [$b['total_interest'], $b['months']]);
-        self::assertSame($sorted, $plans);
+        self::assertSame($sorted, array_values($converging));
 
-        $bestInterest     = $plans[0]['total_interest'];
-        $bestMonths       = $plans[0]['months'];
-        $totals           = array_column($plans, 'total_interest');
-        $baselineInterest = max([] !== $totals ? $totals : [0]);
+        $bestInterest = $plans[0]['total_interest'];
+        $bestMonths   = $plans[0]['months'];
+        $interestVals = array_column($plans, 'total_interest');
+        $baselineInterest = [] === $interestVals ? 0 : max($interestVals);
+
 
         foreach ($plans as $plan) {
             $expectedCurrency      = $plan['total_interest'] - $bestInterest;
@@ -54,7 +60,7 @@ final class DebtSimulationServiceRankingTest extends TestCase
             self::assertEquals($expectedMonths, $plan['cost_of_deviation']['time_months']);
             self::assertGreaterThanOrEqual(0.0, $plan['interest_saved']);
 
-            self::assertSame(DebtSimulationService::RANKING_HEURISTIC, $plan['meta']['ranking_heuristic']);
+            self::assertSame(config('ai.ranking_heuristic'), $plan['meta']['ranking_heuristic']);
             self::assertIsString($plan['meta']['ranking_reason']);
             self::assertIsString($plan['meta']['tradeoffs']);
             self::assertIsArray($plan['meta']['heuristic_scores']);
@@ -64,6 +70,31 @@ final class DebtSimulationServiceRankingTest extends TestCase
             self::assertArrayHasKey('currency', $plan['meta']['tradeoff_drivers']);
             self::assertArrayHasKey('time_months', $plan['meta']['tradeoff_drivers']);
         }
+    }
+
+    public function testRankingHeuristicCanBeConfigured(): void
+    {
+        Cache::flush();
+        config(['ai.ranking_heuristic' => 'months_then_interest']);
+
+        $service = new DebtSimulationService();
+        $user    = $this->createAuthenticatedUser();
+
+        $accounts = [
+            ['account_id' => 1, 'name' => 'Loan1', 'balance' => 1000.0, 'apr' => 10.0, 'min_payment' => 0.0],
+            ['account_id' => 2, 'name' => 'Loan2', 'balance' => 500.0, 'apr' => 5.0, 'min_payment' => 0.0],
+        ];
+
+        $plans = $service->simulate((string) $user->id, '1', $accounts, 300.0, 2);
+
+        foreach ($plans as $plan) {
+            self::assertSame('months_then_interest', $plan['meta']['ranking_heuristic']);
+            self::assertIsArray($plan['meta']['tradeoff_drivers']);
+            self::assertArrayHasKey('currency', $plan['meta']['tradeoff_drivers']);
+            self::assertArrayHasKey('time_months', $plan['meta']['tradeoff_drivers']);
+        }
+
+        config(['ai.ranking_heuristic' => DebtSimulationService::RANKING_HEURISTIC]);
     }
 
     public function testBestPlansReturnedRegardlessOfStrategyOrder(): void

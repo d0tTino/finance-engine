@@ -93,6 +93,8 @@ class DebtController extends Controller
                     'ranking_heuristic' => $plan['meta']['ranking_heuristic'],
                     'ranking_reason'    => $plan['meta']['ranking_reason'] ?? $plan['meta']['ranking_heuristic'],
                     'tradeoffs'         => $plan['meta']['tradeoffs'] ?? $plan['cost_of_deviation'],
+                    'tradeoff_drivers'  => $plan['meta']['tradeoff_drivers'] ?? $plan['cost_of_deviation'],
+                    'heuristic_scores'  => $plan['meta']['heuristic_scores'] ?? [],
                     'strategy_explanation' => $plan['meta']['strategy_explanation'],
                 ];
 

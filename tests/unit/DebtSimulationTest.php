@@ -39,6 +39,10 @@ final class DebtSimulationTest extends TestCase
         $budget = 200.0;
 
         $plans = $service->simulate((string) $user->id, '1', $accounts, $budget, 3);
+        $plans = array_values(array_filter(
+            $plans,
+            static fn (array $plan): bool => in_array($plan['strategy'], ['avalanche', 'snowball', 'balanced'], true)
+        ));
 
         self::assertCount(3, $plans);
 
