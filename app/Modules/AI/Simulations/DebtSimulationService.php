@@ -42,11 +42,13 @@ class DebtSimulationService
 
     /** @var StrategyInterface[] */
     private array $strategies;
+    private string $rankingHeuristic;
 
     public function __construct(?array $strategies = null)
     {
-        $configured = $strategies ?? config('ai.debt_simulation_strategies', []);
-        $this->strategies = [];
+        $configured             = $strategies ?? config('ai.debt_simulation_strategies', []);
+        $this->strategies       = [];
+        $this->rankingHeuristic = (string) config('ai.ranking_heuristic', self::RANKING_HEURISTIC);
         foreach ($configured as $strategyClass) {
             $instance = app($strategyClass);
             if ($instance instanceof StrategyInterface) {
@@ -139,7 +141,13 @@ class DebtSimulationService
 
                 // Ensure the baseline interest is at least as high as any converging plan.
                 $interestPool = [] !== $convergingPlans ? $convergingPlans : $plans;
-                $maxInterest  = [] === $interestPool ? 0.0 : max(array_column($interestPool, 'total_interest'));
+                $maxInterest  = 0.0;
+                if ([] !== $interestPool) {
+                    $maxInterest = max(array_map(
+                        static fn (array $p): float => (float) $p['total_interest'],
+                        $interestPool
+                    ));
+                }
                 if (null === $baselineInterest || $baselineInterest < $maxInterest) {
                     $baselineInterest = $maxInterest;
                 }
@@ -173,7 +181,7 @@ class DebtSimulationService
                     $plan['meta'] = array_merge(
                         $plan['meta'],
                         [
-                            'ranking_heuristic' => self::RANKING_HEURISTIC,
+                            'ranking_heuristic' => $this->rankingHeuristic,
                             'heuristic_scores'  => [
                                 'total_interest' => $plan['total_interest'],
                                 'months'         => $plan['months'],
@@ -275,7 +283,7 @@ class DebtSimulationService
             $remainingBudget = max($remainingBudget, 0.0);
 
             // Allocate any extra budget to targeted debt(s).
-            while ($remainingBudget > 0 && $this->hasBalance($debts)) {
+            while ($remainingBudget > 0) {
                 $targetKey = $strategy->selectTargetDebt($debts);
                 if (null === $targetKey) {
                     break;
