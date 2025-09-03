@@ -20,7 +20,7 @@ final class DebtSimulationNonConvergingTest extends TestCase
         $service = new DebtSimulationService();
 
         $accounts = [
-            ['account_id' => 1, 'balance' => 1000.0, 'apr' => 120.0, 'min_payment' => 0.0],
+            ['account_id' => 1, 'balance' => 1000.0, 'apr' => 1.20, 'min_payment' => 0.0],
         ];
         $budget = 50.0;
 

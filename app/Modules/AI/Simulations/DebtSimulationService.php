@@ -39,6 +39,7 @@ class DebtSimulationService
 {
     public const RANKING_HEURISTIC = 'interest_then_months';
     public const MAX_MONTHS = 600;
+    private const HIGH_APR_THRESHOLD = 0.10;
 
     /** @var StrategyInterface[] */
     private array $strategies;
@@ -63,7 +64,7 @@ class DebtSimulationService
      * @param string      $userId     The owning user identifier.
      * @param string|null $groupId    The user group identifier.
      * @param array $accounts   Array of accounts. Each entry must contain
-     *                          `account_id`, `balance` and `apr` (APR percentage)
+     *                          `account_id`, `balance` and `apr` (APR decimal)
      *                          and may contain `id`, `name` and `min_payment`.
      * @param float $budget     Total monthly amount available for debt payments.
      * @param int   $maxOptions Maximum number of plans to return.
@@ -95,7 +96,7 @@ class DebtSimulationService
                     return [
                         'name'        => (string) ($account['name'] ?? $account['id'] ?? $account['account_id']),
                         'balance'     => (float) $account['balance'],
-                        'rate'        => (float) $account['apr'] / 100,
+                        'rate'        => (float) $account['apr'],
                         'min_payment' => (float) ($account['min_payment'] ?? $account['minimum_payment'] ?? 0.0),
                     ];
                 }, $accounts);
@@ -224,7 +225,7 @@ class DebtSimulationService
 
         $recommendations   = [];
         foreach ($debts as $debt) {
-            if ($debt['rate'] >= 0.10) {
+            if ($debt['rate'] >= self::HIGH_APR_THRESHOLD) {
                 $recommendations[] = sprintf(
                     'Consider refinancing %s to lower the %.2f%% APR.',
                     $debt['name'],

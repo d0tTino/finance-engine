@@ -22,7 +22,7 @@ final class DebtSimulationServiceAprConversionTest extends TestCase
         $userId   = 'user';
         $groupId  = 'group';
         $accounts = [
-            ['account_id' => 1, 'balance' => 1200.0, 'apr' => 12.0, 'minimum_payment' => 0.0],
+            ['account_id' => 1, 'balance' => 1200.0, 'apr' => 0.12, 'minimum_payment' => 0.0],
         ];
 
         $plans = $service->simulate($userId, $groupId, $accounts, 1200.0, 1);

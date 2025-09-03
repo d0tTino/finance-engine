@@ -47,7 +47,7 @@ final class DebtSimulationServiceBudgetTest extends TestCase
         $userId   = 'user';
         $groupId  = 'group';
         $accounts = [
-            ['account_id' => 1, 'balance' => 100.0, 'apr' => 5.0],
+            ['account_id' => 1, 'balance' => 100.0, 'apr' => 0.05],
         ];
 
         $plans = $service->simulate($userId, $groupId, $accounts, 50.0, 1);
@@ -87,13 +87,13 @@ final class DebtSimulationServiceBudgetTest extends TestCase
                 [
                     'account_id'      => (string) $account1->uuid,
                     'balance'         => 100.0,
-                    'apr'             => 5.0,
+                    'apr'             => 0.05,
                     'minimum_payment' => 60.0,
                 ],
                 [
                     'account_id'      => (string) $account2->uuid,
                     'balance'         => 100.0,
-                    'apr'             => 3.0,
+                    'apr'             => 0.03,
                     'minimum_payment' => 70.0,
                 ],
             ],

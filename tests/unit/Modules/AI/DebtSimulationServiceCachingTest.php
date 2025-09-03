@@ -32,7 +32,7 @@ final class DebtSimulationServiceCachingTest extends TestCase
         $userIdB  = '01';
         $groupId  = '1';
         $accounts = [
-            ['account_id' => 1, 'balance' => 100.0, 'apr' => 5.0],
+            ['account_id' => 1, 'balance' => 100.0, 'apr' => 0.05],
         ];
         $budget     = 50.0;
         $maxOptions = 2;
@@ -61,8 +61,8 @@ final class DebtSimulationServiceCachingTest extends TestCase
         $userId   = '1';
         $groupId  = '1';
         $accounts = [
-            ['account_id' => 1, 'balance' => 100.0, 'apr' => 5.0],
-            ['account_id' => 2, 'balance' => 50.0, 'apr' => 3.0],
+            ['account_id' => 1, 'balance' => 100.0, 'apr' => 0.05],
+            ['account_id' => 2, 'balance' => 50.0, 'apr' => 0.03],
         ];
         $budget     = 50.0;
         $maxOptions = 2;

@@ -76,13 +76,13 @@ final class DebtSimulationApiTest extends IntegrationTestCase
             [
                 'account_id'      => (string) $account1->uuid,
                 'balance'         => 100.0,
-                'apr'             => 5.0,
+                'apr'             => 0.05,
                 'minimum_payment' => 0.0,
             ],
             [
                 'account_id'      => (string) $account2->uuid,
                 'balance'         => 200.0,
-                'apr'             => 3.0,
+                'apr'             => 0.03,
                 'minimum_payment' => 0.0,
             ],
         ];
@@ -176,13 +176,13 @@ final class DebtSimulationApiTest extends IntegrationTestCase
             [
                 'account_id'      => (string) $account3->uuid,
                 'balance'         => 100.0,
-                'apr'             => 5.0,
+                'apr'             => 0.05,
                 'minimum_payment' => 0.0,
             ],
             [
                 'account_id'      => (string) $account4->uuid,
                 'balance'         => 200.0,
-                'apr'             => 3.0,
+                'apr'             => 0.03,
                 'minimum_payment' => 0.0,
             ],
         ];
@@ -206,7 +206,7 @@ final class DebtSimulationApiTest extends IntegrationTestCase
             [
                 'account_id'       => (string) Str::uuid(),
                 'balance'          => 100.0,
-                'apr'              => 5.0,
+                'apr'              => 0.05,
                 'minimum_payment'  => 0.0,
             ],
         ];
@@ -264,7 +264,7 @@ final class DebtSimulationApiTest extends IntegrationTestCase
             'accounts'       => [[
                 'account_id'       => (string) $foreign->uuid,
                 'balance'          => 100.0,
-                'apr'              => 5.0,
+                'apr'              => 0.05,
                 'minimum_payment'  => 0.0,
             ]],
             'monthly_budget' => 50.0,
@@ -310,7 +310,7 @@ final class DebtSimulationApiTest extends IntegrationTestCase
             'accounts'       => [[
                 'account_id'       => (string) $account1->uuid,
                 'balance'          => 100.0,
-                'apr'              => 5.0,
+                'apr'              => 0.05,
                 'minimum_payment'  => 0.0,
             ]],
             'monthly_budget' => 50.0,
