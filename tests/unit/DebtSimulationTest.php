@@ -34,7 +34,7 @@ final class DebtSimulationTest extends TestCase
         ]);
 
         $accounts = [
-            ['account_id' => 1, 'balance' => 1000.0, 'apr' => 10.0, 'min_payment' => 0.0],
+            ['account_id' => 1, 'balance' => 1000.0, 'apr' => 0.10, 'min_payment' => 0.0],
         ];
         $budget = 200.0;
 
@@ -93,8 +93,8 @@ final class DebtSimulationTest extends TestCase
         ]);
 
         $accounts = [
-            ['account_id' => 1, 'name' => 'Loan1', 'balance' => 1000.0, 'apr' => 10.0, 'min_payment' => 0.0],
-            ['account_id' => 2, 'name' => 'Loan2', 'balance' => 500.0, 'apr' => 5.0, 'min_payment' => 0.0],
+            ['account_id' => 1, 'name' => 'Loan1', 'balance' => 1000.0, 'apr' => 0.10, 'min_payment' => 0.0],
+            ['account_id' => 2, 'name' => 'Loan2', 'balance' => 500.0, 'apr' => 0.05, 'min_payment' => 0.0],
         ];
         $budget = 300.0;
 
@@ -152,8 +152,8 @@ final class DebtSimulationTest extends TestCase
         ]);
 
         $accounts = [
-            ['account_id' => 1, 'name' => 'Loan1', 'balance' => 1000.0, 'apr' => 10.0, 'min_payment' => 0.0],
-            ['account_id' => 2, 'name' => 'Loan2', 'balance' => 500.0, 'apr' => 5.0, 'min_payment' => 0.0],
+            ['account_id' => 1, 'name' => 'Loan1', 'balance' => 1000.0, 'apr' => 0.10, 'min_payment' => 0.0],
+            ['account_id' => 2, 'name' => 'Loan2', 'balance' => 500.0, 'apr' => 0.05, 'min_payment' => 0.0],
         ];
         $budget = 300.0;
 

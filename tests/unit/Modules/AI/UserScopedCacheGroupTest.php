@@ -32,7 +32,7 @@ final class UserScopedCacheGroupTest extends TestCase
         $groupIdA = '1';
         $groupIdB = '2';
         $accounts = [
-            ['account_id' => 1, 'balance' => 100.0, 'apr' => 5.0],
+            ['account_id' => 1, 'balance' => 100.0, 'apr' => 0.05],
         ];
         $budget     = 50.0;
         $maxOptions = 2;
