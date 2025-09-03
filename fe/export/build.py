@@ -1,9 +1,12 @@
 import argparse
+import json
 import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
+
+from fe.signoff.gate import approve
 
 
 STRATEGIES = ["cross_pairs", "deadline_no", "maker", "rules_alpha"]
@@ -20,6 +23,18 @@ def build_wheel(version: str, strategies: list[str]) -> Path:
         Strategy module names to include.
     """
     repo_root = Path(__file__).resolve().parents[2]
+
+    reports_dir = repo_root / "reports"
+    for name in strategies:
+        report_path = reports_dir / f"{name}.json"
+        if not report_path.is_file():
+            raise FileNotFoundError(
+                f"Strategy report '{name}' not found at {report_path}"
+            )
+        report = json.loads(report_path.read_text())
+        if not approve(report):
+            raise SystemExit(f"Strategy '{name}' failed approval gate")
+
     dist_dir = repo_root / "dist"
     dist_dir.mkdir(exist_ok=True)
 
