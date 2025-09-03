@@ -8,6 +8,8 @@ uncertainty.
 """
 from __future__ import annotations
 
+import argparse
+import json
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Tuple
@@ -223,3 +225,60 @@ def evaluate_brier_by_taxonomy(
         results[bucket] = (iso_score, improvement)
 
     return results
+
+
+def cli() -> None:
+    """Command-line interface for base rate evaluation utilities."""
+    parser = argparse.ArgumentParser(
+        description="Base rate estimator utilities"
+    )
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    parser_score = sub.add_parser(
+        "evaluate-brier-score", help="Evaluate overall Brier score"
+    )
+    parser_score.add_argument(
+        "--test-size",
+        type=float,
+        default=0.2,
+        help="Fraction of data reserved for validation",
+    )
+    parser_score.add_argument(
+        "--random-state",
+        type=int,
+        default=0,
+        help="Seed for reproducibility",
+    )
+
+    parser_taxonomy = sub.add_parser(
+        "evaluate-brier-by-taxonomy",
+        help="Evaluate Brier score per taxonomy bucket",
+    )
+    parser_taxonomy.add_argument(
+        "--test-size",
+        type=float,
+        default=0.2,
+        help="Fraction of data reserved for validation",
+    )
+    parser_taxonomy.add_argument(
+        "--random-state",
+        type=int,
+        default=0,
+        help="Seed for reproducibility",
+    )
+
+    args = parser.parse_args()
+    if args.command == "evaluate-brier-score":
+        score, improvement = evaluate_brier_score(
+            args.test_size, args.random_state
+        )
+        print(json.dumps({"score": score, "improvement": improvement}))
+    elif args.command == "evaluate-brier-by-taxonomy":
+        results = evaluate_brier_by_taxonomy(
+            args.test_size, args.random_state
+        )
+        print(json.dumps(results, indent=2))
+
+
+if __name__ == "__main__":
+    cli()

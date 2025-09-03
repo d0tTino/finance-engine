@@ -8,7 +8,7 @@ import pytest
 
 sys.path.append(str(Path(__file__).resolve().parents[3]))
 
-from fe.base_rates import evaluate_brier_score  # noqa: E402
+from fe.base_rates import evaluate_brier_score, evaluate_brier_by_taxonomy  # noqa: E402
 import fe.base_rates.estimator as estimator  # noqa: E402
 
 
@@ -16,9 +16,9 @@ import fe.base_rates.estimator as estimator  # noqa: E402
 def mock_historical(monkeypatch):
     data = pd.DataFrame(
         {
-            "category": ["politics"] * 10 + ["sports"] * 10,
+            "category": ["geopolitics"] * 10 + ["sector"] * 10,
             "horizon_days": list(range(1, 11)) * 2,
-            "outcome": [1] * 4 + [0] * 6 + [0] * 4 + [1] * 6,
+            "outcome": [1] * 10 + [0] * 10,
         }
     )
 
@@ -41,9 +41,16 @@ def test_historical_brier_score_improves_over_baseline(mock_historical):
     assert improvement > 0
 
 
+def test_taxonomy_brier_scores_improve_over_baseline(mock_historical):
+    results = evaluate_brier_by_taxonomy(random_state=1)
+    assert results
+    for score, improvement in results.values():
+        assert improvement > 0
+
+
 def test_estimate_prior_returns_no_nulls(mock_historical):
     prob, ci = estimator.estimate_prior(
-        "politics", datetime.utcnow() + timedelta(days=10)
+        "geopolitics", datetime.utcnow() + timedelta(days=10)
     )
     assert 0 <= prob <= 1 and not math.isnan(prob)
     assert len(ci) == 2 and not any(math.isnan(v) for v in ci)
