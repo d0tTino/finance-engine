@@ -50,3 +50,9 @@ market_microstructure:
     weekly:
       # Higher-level view to smooth short-term noise.
       description: "Data aggregated per week."
+corporate:
+  # Company-level events and governance changes.
+  horizons:
+    ceo_change:
+      # Evaluates market reactions to CEO transitions.
+      description: "Group events by the announcement or effective date of CEO changes."

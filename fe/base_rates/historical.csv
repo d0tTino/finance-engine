@@ -7,3 +7,11 @@ sports,30,1
 sports,60,1
 sports,90,0
 sports,120,0
+geopolitics,30,1
+geopolitics,60,0
+geopolitics,90,1
+geopolitics,120,0
+corporate,30,0
+corporate,60,1
+corporate,90,0
+corporate,120,1
