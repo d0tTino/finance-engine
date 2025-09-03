@@ -1,0 +1,5 @@
+{
+  "MIN_SAMPLE": 5,
+  "MAX_MDD": 0.5,
+  "ALPHA": 0.5
+}
