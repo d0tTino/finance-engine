@@ -40,7 +40,9 @@ final class UserScopedCacheGroupTest extends TestCase
         $service->simulate($userId, $groupIdA, $accounts, $budget, $maxOptions);
         $service->simulate($userId, $groupIdB, $accounts, $budget, $maxOptions);
 
-        $hash      = hash('sha256', serialize([$accounts, $budget, $maxOptions]));
+        $heuristic = config('ai.ranking_heuristic');
+        $strategies = config('ai.debt_simulation_strategies', []);
+        $hash      = hash('sha256', serialize([$accounts, $budget, $maxOptions, $heuristic, $strategies]));
         $cacheKeyA = sprintf('u:%s:g:%s:debt-sim-%s', $userId, $groupIdA, $hash);
         $cacheKeyB = sprintf('u:%s:g:%s:debt-sim-%s', $userId, $groupIdB, $hash);
 

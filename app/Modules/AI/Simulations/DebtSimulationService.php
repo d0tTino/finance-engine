@@ -80,8 +80,18 @@ class DebtSimulationService
         usort($accounts, static function (array $a, array $b): int {
             return ($a['account_id'] ?? 0) <=> ($b['account_id'] ?? 0);
         });
+        $strategyClasses = array_map(
+            static fn (StrategyInterface $strategy): string => get_class($strategy),
+            $this->strategies
+        );
 
-        $hash     = hash('sha256', serialize([$accounts, $budget, $maxOptions]));
+        $hash     = hash('sha256', serialize([
+            $accounts,
+            $budget,
+            $maxOptions,
+            $this->rankingHeuristic,
+            $strategyClasses,
+        ]));
 
         $cacheKey = 'debt-sim-' . $hash;
         $ttl      = (int) config('ai.debt_simulation_cache_ttl', 3600);

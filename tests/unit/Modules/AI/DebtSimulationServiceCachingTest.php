@@ -38,8 +38,9 @@ final class DebtSimulationServiceCachingTest extends TestCase
         $maxOptions = 2;
 
         $service->simulate($userIdA, $groupId, $accounts, $budget, $maxOptions);
-
-        $hash       = hash('sha256', serialize([$accounts, $budget, $maxOptions]));
+        $heuristic  = config('ai.ranking_heuristic');
+        $strategies = config('ai.debt_simulation_strategies', []);
+        $hash       = hash('sha256', serialize([$accounts, $budget, $maxOptions, $heuristic, $strategies]));
         $cacheKeyA  = sprintf('u:%s:g:%s:debt-sim-%s', $userIdA, $groupId, $hash);
         self::assertTrue(Cache::has($cacheKeyA));
 
@@ -79,11 +80,45 @@ final class DebtSimulationServiceCachingTest extends TestCase
 
         self::assertEquals($resultA, $resultB);
 
-        $hash             = hash('sha256', serialize([$originalAccounts, $budget, $maxOptions]));
+        $heuristic        = config('ai.ranking_heuristic');
+        $strategies       = config('ai.debt_simulation_strategies', []);
+        $hash             = hash('sha256', serialize([$originalAccounts, $budget, $maxOptions, $heuristic, $strategies]));
         $cacheKey         = sprintf('u:%s:g:%s:debt-sim-%s', $userId, $groupId, $hash);
-        $hashShuffled     = hash('sha256', serialize([$shuffled, $budget, $maxOptions]));
+        $hashShuffled     = hash('sha256', serialize([$shuffled, $budget, $maxOptions, $heuristic, $strategies]));
         $cacheKeyShuffled = sprintf('u:%s:g:%s:debt-sim-%s', $userId, $groupId, $hashShuffled);
         self::assertTrue(Cache::has($cacheKey));
         self::assertFalse(Cache::has($cacheKeyShuffled));
+    }
+
+    public function testInvalidatesCacheWhenHeuristicChanges(): void
+    {
+        Cache::flush();
+        $userId   = '1';
+        $groupId  = '1';
+        $accounts = [
+            ['account_id' => 1, 'balance' => 100.0, 'apr' => 5.0],
+        ];
+        $budget     = 50.0;
+        $maxOptions = 2;
+
+        config(['ai.ranking_heuristic' => 'interest_then_months']);
+        $serviceA = new DebtSimulationService();
+        $resultA  = $serviceA->simulate($userId, $groupId, $accounts, $budget, $maxOptions);
+        $strategies = config('ai.debt_simulation_strategies', []);
+        $hashA      = hash('sha256', serialize([$accounts, $budget, $maxOptions, 'interest_then_months', $strategies]));
+        $cacheKeyA  = sprintf('u:%s:g:%s:debt-sim-%s', $userId, $groupId, $hashA);
+        self::assertTrue(Cache::has($cacheKeyA));
+
+        config(['ai.ranking_heuristic' => 'months_then_interest']);
+        $serviceB = new DebtSimulationService();
+        $resultB  = $serviceB->simulate($userId, $groupId, $accounts, $budget, $maxOptions);
+        $hashB     = hash('sha256', serialize([$accounts, $budget, $maxOptions, 'months_then_interest', $strategies]));
+        $cacheKeyB = sprintf('u:%s:g:%s:debt-sim-%s', $userId, $groupId, $hashB);
+
+        self::assertTrue(Cache::has($cacheKeyB));
+        self::assertNotEquals($cacheKeyA, $cacheKeyB);
+        self::assertNotEquals($resultA, $resultB);
+
+        config(['ai.ranking_heuristic' => DebtSimulationService::RANKING_HEURISTIC]);
     }
 }
