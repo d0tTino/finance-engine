@@ -47,8 +47,9 @@ namespace Tests\unit\Modules\AI {
         public function testSuccessfulInference(): void
         {
             $original = config('ai.ml_model_path');
+            $originalThreshold = config('ai.ml_model_threshold');
             $modelPath = tempnam(sys_get_temp_dir(), 'model');
-            config(['ai.ml_model_path' => $modelPath]);
+            config(['ai.ml_model_path' => $modelPath, 'ai.ml_model_threshold' => 0.5]);
 
             \ONNXRuntime\InferenceSession::$shouldThrow = false;
             \ONNXRuntime\InferenceSession::$output = [[0.1, 0.7, 0.2]];
@@ -64,28 +65,59 @@ namespace Tests\unit\Modules\AI {
 
             self::assertSame(1, $result);
 
-            config(['ai.ml_model_path' => $original]);
+            \ONNXRuntime\InferenceSession::$output = [[0.0]];
+
+            config(['ai.ml_model_path' => $original, 'ai.ml_model_threshold' => $originalThreshold]);
         }
 
         public function testInferenceFallbackOnError(): void
         {
-            $original = config('ai.ml_model_path');
+            $original           = config('ai.ml_model_path');
+            $originalThreshold  = config('ai.ml_model_threshold');
             $modelPath = tempnam(sys_get_temp_dir(), 'model');
-            config(['ai.ml_model_path' => $modelPath]);
+            config(['ai.ml_model_path' => $modelPath, 'ai.ml_model_threshold' => 0.5]);
 
             \ONNXRuntime\InferenceSession::$shouldThrow = true;
 
             $strategy = new MlStrategy();
             $debts    = [
                 ['balance' => 100.0, 'rate' => 1.0, 'min_payment' => 10.0],
+                ['balance' => 200.0, 'rate' => 2.0, 'min_payment' => 20.0],
             ];
 
             $result = $strategy->selectTargetDebt($debts);
 
-            self::assertNull($result);
+            self::assertSame(1, $result);
 
             \ONNXRuntime\InferenceSession::$shouldThrow = false;
-            config(['ai.ml_model_path' => $original]);
+            \ONNXRuntime\InferenceSession::$output      = [[0.0]];
+            config(['ai.ml_model_path' => $original, 'ai.ml_model_threshold' => $originalThreshold]);
+        }
+
+        public function testInferenceFallbackOnLowConfidence(): void
+        {
+            $original           = config('ai.ml_model_path');
+            $originalThreshold  = config('ai.ml_model_threshold');
+            $modelPath = tempnam(sys_get_temp_dir(), 'model');
+            config(['ai.ml_model_path' => $modelPath, 'ai.ml_model_threshold' => 0.8]);
+
+            \ONNXRuntime\InferenceSession::$shouldThrow = false;
+            \ONNXRuntime\InferenceSession::$output      = [[0.4, 0.3, 0.3]];
+
+            $strategy = new MlStrategy();
+            $debts    = [
+                ['balance' => 100.0, 'rate' => 1.0, 'min_payment' => 10.0],
+                ['balance' => 200.0, 'rate' => 2.0, 'min_payment' => 20.0],
+                ['balance' => 50.0, 'rate' => 0.5, 'min_payment' => 5.0],
+            ];
+
+            $result = $strategy->selectTargetDebt($debts);
+
+            self::assertSame(1, $result);
+
+            \ONNXRuntime\InferenceSession::$output = [[0.0]];
+
+            config(['ai.ml_model_path' => $original, 'ai.ml_model_threshold' => $originalThreshold]);
         }
 
         public function testStrategyIsInvokedAndRankedWithAnnotations(): void
@@ -110,9 +142,9 @@ namespace Tests\unit\Modules\AI {
             self::assertNotFalse($mlIndex);
             $mlPlan = $plans[$mlIndex];
 
-            // ensure ml strategy ranked last and is marked non-converging
-            self::assertSame($mlIndex + 1, $mlPlan['rank']);
-            self::assertSame('non_converging', $mlPlan['status']);
+            // ensure ml strategy produced a converging plan
+            self::assertIsInt($mlPlan['rank']);
+            self::assertSame('ok', $mlPlan['status']);
 
             // cost-of-deviation relative to best plan
             $bestPlan         = $plans[0];
