@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -48,15 +49,22 @@ _retries = retry.Retry(
     backoff_factor=1,
     status_forcelist=[429, 500, 502, 503, 504],
     allowed_methods=["GET"],
+    raise_on_status=False,
 )
 _adapter = HTTPAdapter(max_retries=_retries)
 _session.mount("https://", _adapter)
 _session.mount("http://", _adapter)
 
+logger = logging.getLogger(__name__)
+
 
 def _get(url: str, params: Dict[str, Any] | None = None) -> Any:
-    resp = _session.get(url, params=params, timeout=30)
-    resp.raise_for_status()
+    try:
+        resp = _session.get(url, params=params, timeout=30)
+        resp.raise_for_status()
+    except Exception:
+        logger.exception("GET request failed for %s", url)
+        raise
     if resp.headers.get("content-type", "").startswith("application/json"):
         return resp.json()
     return resp.text
@@ -108,6 +116,7 @@ def fetch_price_history(market_id: str) -> List[Dict[str, Any]]:
             {"resolution": "d"},
         )
     except Exception:
+        logger.exception("Failed to fetch price history for %s", market_id)
         return []
 
 
@@ -116,6 +125,7 @@ def fetch_order_book(market_id: str) -> Dict[str, Any]:
     try:
         return _get(f"{CLOB_URL}/markets/{market_id}/book")
     except Exception:
+        logger.exception("Failed to fetch order book for %s", market_id)
         return {}
 
 
@@ -129,6 +139,9 @@ def fetch_clarification_resolution_events(
             {"market": market_id},
         )
     except Exception:
+        logger.exception(
+            "Failed to fetch clarification/resolution events for %s", market_id
+        )
         return []
 
 
