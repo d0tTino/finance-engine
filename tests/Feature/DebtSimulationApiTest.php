@@ -200,6 +200,97 @@ final class DebtSimulationApiTest extends IntegrationTestCase
         self::assertSame($response2->json('proposed_actions'), $response2b->json('proposed_actions'));
     }
 
+    public function testReturnsMultiplePlansWithMetaDetails(): void
+    {
+        Cache::setDefaultDriver('file');
+        putenv('CACHE_DRIVER=file');
+        Cache::flush();
+        $this->withoutMiddleware([Authenticate::class, 'auth:api', 'auth:api,sanctum', EnsureFrontendRequestsAreStateful::class, OpaMiddleware::class]);
+        config(['auth.defaults.guard' => 'web']);
+
+        if (!Schema::hasColumn('users', 'uuid')) {
+            Schema::table('users', static function (Blueprint $table): void {
+                $table->uuid('uuid')->nullable();
+            });
+        }
+        if (!Schema::hasColumn('accounts', 'uuid')) {
+            Schema::table('accounts', static function (Blueprint $table): void {
+                $table->uuid('uuid')->nullable();
+            });
+        }
+
+        $user = User::create(['email' => 'user@example.com', 'password' => 'secret']);
+        CreatesGroupMemberships::createGroupMembership($user);
+        $user->refresh();
+        $user->uuid = (string) Str::uuid();
+
+        $type     = AccountType::where('type', AccountTypeEnum::DEBT->value)->first();
+        $accountA = Account::create([
+            'user_id'         => $user->id,
+            'user_group_id'   => $user->user_group_id,
+            'account_type_id' => $type->id,
+            'name'            => 'Debt A',
+            'active'          => true,
+        ]);
+        $accountA->uuid = (string) Str::uuid();
+        $accountA->save();
+        $accountA->refresh();
+        $accountB = Account::create([
+            'user_id'         => $user->id,
+            'user_group_id'   => $user->user_group_id,
+            'account_type_id' => $type->id,
+            'name'            => 'Debt B',
+            'active'          => true,
+        ]);
+        $accountB->uuid = (string) Str::uuid();
+        $accountB->save();
+        $accountB->refresh();
+        $this->be($user);
+
+        $payload = [
+            'user_id'        => $user->uuid,
+            'group_id'       => null,
+            'accounts'       => [
+                [
+                    'account_id'      => (string) $accountA->uuid,
+                    'balance'         => 100.0,
+                    'apr'             => 0.05,
+                    'minimum_payment' => 0.0,
+                ],
+                [
+                    'account_id'      => (string) $accountB->uuid,
+                    'balance'         => 200.0,
+                    'apr'             => 0.03,
+                    'minimum_payment' => 0.0,
+                ],
+            ],
+            'monthly_budget' => 50.0,
+            'max_options'    => 3,
+        ];
+
+        $response = $this->postJson('/api/v1/simulations/debt', $payload)->assertOk();
+        $actions  = $response->json('proposed_actions');
+        self::assertGreaterThan(1, count($actions));
+
+        foreach ($actions as $action) {
+            if (!(bool) $action['is_optimal']) {
+                self::assertArrayHasKey('cost_of_deviation', $action);
+                self::assertArrayHasKey('currency', $action['cost_of_deviation']);
+                self::assertArrayHasKey('time_months', $action['cost_of_deviation']);
+                self::assertIsNumeric($action['cost_of_deviation']['currency']);
+                self::assertIsNumeric($action['cost_of_deviation']['time_months']);
+            }
+            self::assertArrayHasKey('heuristic_scores', $action['meta']);
+            self::assertArrayHasKey('total_interest', $action['meta']['heuristic_scores']);
+            self::assertArrayHasKey('months', $action['meta']['heuristic_scores']);
+            self::assertIsNumeric($action['meta']['heuristic_scores']['total_interest']);
+            self::assertIsNumeric($action['meta']['heuristic_scores']['months']);
+            self::assertArrayHasKey('strategy_explanation', $action['meta']);
+            self::assertIsString($action['meta']['strategy_explanation']);
+            self::assertNotEmpty($action['meta']['strategy_explanation']);
+        }
+    }
+
     public function testUuidValidationAndNullableGroupId(): void
     {
         $accounts = [
