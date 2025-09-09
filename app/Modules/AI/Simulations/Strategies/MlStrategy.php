@@ -53,6 +53,7 @@ class MlStrategy implements StrategyInterface
     protected function infer(array $features): ?int
     {
         $modelPath = config('ai.ml_model_path');
+        $threshold = (float) config('ai.ml_model_threshold', 0.0);
 
         if (!is_string($modelPath) || !is_file($modelPath)) {
             return null;
@@ -68,8 +69,9 @@ class MlStrategy implements StrategyInterface
             $predictions = $result[0] ?? $result['output'] ?? null;
 
             if (is_array($predictions) && [] !== $predictions) {
-                $index = array_search(max($predictions), $predictions, true);
-                if (false !== $index) {
+                $max    = max($predictions);
+                $index  = array_search($max, $predictions, true);
+                if (false !== $index && $max >= $threshold) {
                     return (int) $index;
                 }
             }
@@ -88,6 +90,8 @@ class MlStrategy implements StrategyInterface
             return $prediction;
         }
 
-        return null;
+        $fallback = new AvalancheStrategy();
+
+        return $fallback->selectTargetDebt($debts);
     }
 }
