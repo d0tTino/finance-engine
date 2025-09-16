@@ -60,6 +60,7 @@ use FireflyIII\Events\UpdatedTransactionGroup;
 use FireflyIII\Events\UserChangedEmail;
 use FireflyIII\Events\WarnUserAboutBill;
 use FireflyIII\Listeners\FlushDebtSimulationCache;
+use FireflyIII\Listeners\UserGroupMembershipChanged;
 use FireflyIII\Handlers\Observer\AccountObserver;
 use FireflyIII\Handlers\Observer\AttachmentObserver;
 use FireflyIII\Handlers\Observer\AutoBudgetObserver;
@@ -206,6 +207,15 @@ class EventServiceProvider extends ServiceProvider
             ],
             'eloquent.deleted: FireflyIII\User' => [
                 FlushDebtSimulationCache::class,
+            ],
+            'eloquent.created: FireflyIII\Models\GroupMembership' => [
+                UserGroupMembershipChanged::class,
+            ],
+            'eloquent.updated: FireflyIII\Models\GroupMembership' => [
+                UserGroupMembershipChanged::class,
+            ],
+            'eloquent.deleted: FireflyIII\Models\GroupMembership' => [
+                UserGroupMembershipChanged::class,
             ],
 
             // bill related events:
