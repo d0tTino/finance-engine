@@ -9,6 +9,13 @@ namespace FireflyIII\Modules\AI\Simulations\Strategies;
  */
 class MlStrategy implements StrategyInterface
 {
+    /**
+     * @var \ONNXRuntime\InferenceSession|null
+     */
+    private static $session = null;
+
+    private static ?string $sessionModelPath = null;
+
     public function getName(): string
     {
         return 'ml';
@@ -56,15 +63,24 @@ class MlStrategy implements StrategyInterface
         $threshold = (float) config('ai.ml_model_threshold', 0.0);
 
         if (!is_string($modelPath) || !is_file($modelPath)) {
+            self::$session = null;
+            self::$sessionModelPath = null;
             return null;
         }
 
         if (!class_exists('\\ONNXRuntime\\InferenceSession')) {
+            self::$session = null;
+            self::$sessionModelPath = null;
             return null;
         }
 
         try {
-            $session     = new \ONNXRuntime\InferenceSession($modelPath);
+            if (null === self::$session || $modelPath !== self::$sessionModelPath) {
+                self::$session           = new \ONNXRuntime\InferenceSession($modelPath);
+                self::$sessionModelPath  = $modelPath;
+            }
+
+            $session     = self::$session;
             $result      = $session->run(['input' => $features]);
             $predictions = $result[0] ?? $result['output'] ?? null;
 
@@ -76,6 +92,8 @@ class MlStrategy implements StrategyInterface
                 }
             }
         } catch (\Throwable $e) {
+            self::$session = null;
+            self::$sessionModelPath = null;
             report($e);
         }
 
