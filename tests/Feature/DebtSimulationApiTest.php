@@ -291,6 +291,65 @@ final class DebtSimulationApiTest extends IntegrationTestCase
         }
     }
 
+    public function testRejectsExcessiveMaxOptions(): void
+    {
+        Cache::setDefaultDriver('file');
+        putenv('CACHE_DRIVER=file');
+        Cache::flush();
+        $this->withoutMiddleware([Authenticate::class, 'auth:api', 'auth:api,sanctum', EnsureFrontendRequestsAreStateful::class, OpaMiddleware::class]);
+        config(['auth.defaults.guard' => 'web']);
+
+        if (!Schema::hasColumn('users', 'uuid')) {
+            Schema::table('users', static function (Blueprint $table): void {
+                $table->uuid('uuid')->nullable();
+            });
+        }
+        if (!Schema::hasColumn('accounts', 'uuid')) {
+            Schema::table('accounts', static function (Blueprint $table): void {
+                $table->uuid('uuid')->nullable();
+            });
+        }
+
+        $user = User::create(['email' => 'user@example.com', 'password' => 'secret']);
+        CreatesGroupMemberships::createGroupMembership($user);
+        $user->refresh();
+        $user->uuid = (string) Str::uuid();
+
+        $type    = AccountType::where('type', AccountTypeEnum::DEBT->value)->first();
+        $account = Account::create([
+            'user_id'         => $user->id,
+            'user_group_id'   => $user->user_group_id,
+            'account_type_id' => $type->id,
+            'name'            => 'Debt A',
+            'active'          => true,
+        ]);
+        $account->uuid = (string) Str::uuid();
+        $account->save();
+        $account->refresh();
+        $this->be($user);
+
+        $strategies   = config('ai.debt_simulation_strategies', []);
+        $strategyCount = is_countable($strategies) ? count($strategies) : 0;
+        $allowedMax    = max(1, $strategyCount);
+
+        $payload = [
+            'user_id'        => $user->uuid,
+            'group_id'       => null,
+            'accounts'       => [[
+                'account_id'       => (string) $account->uuid,
+                'balance'          => 100.0,
+                'apr'              => 0.05,
+                'minimum_payment'  => 0.0,
+            ]],
+            'monthly_budget' => 50.0,
+            'max_options'    => $allowedMax + 1,
+        ];
+
+        $this->postJson('/api/v1/simulations/debt', $payload)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['max_options']);
+    }
+
     public function testUuidValidationAndNullableGroupId(): void
     {
         $accounts = [
