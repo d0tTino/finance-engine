@@ -72,6 +72,10 @@ class DebtRequest extends FormRequest
      */
     public function rules(): array
     {
+        $strategies    = config('ai.debt_simulation_strategies', []);
+        $strategyCount = is_countable($strategies) ? count($strategies) : 0;
+        $maxOptions    = max(1, $strategyCount);
+
         return [
             'user_id'                      => 'required|uuid',
             'group_id'                     => 'nullable|uuid',
@@ -82,7 +86,7 @@ class DebtRequest extends FormRequest
             'accounts.*.apr'               => 'required|numeric|min:0',
             'accounts.*.minimum_payment'   => 'required|numeric|min:0',
             'monthly_budget'               => 'required|numeric|min:0',
-            'max_options'                  => 'required|integer|min:1',
+            'max_options'                  => 'required|integer|min:1|max:' . $maxOptions,
         ];
     }
 
