@@ -73,8 +73,8 @@ def score_rule_objectivity(rule: Optional[str]) -> str:
         return "ambiguous"
     if clear:
         return "clear"
-    # Default to "clear" when text exists but heuristics find nothing
-    return "clear"
+    # Default to "unknown" when text exists but heuristics find nothing
+    return "unknown"
 
 
 def batch_score(rules: Iterable[Optional[str]]) -> list[str]:

@@ -34,11 +34,16 @@ def test_score_numeric_sets_clear():
     assert score_rule_objectivity(rule) == "clear"
 
 
-def test_score_default_clear():
+def test_score_default_unknown():
     rule = "ordinary text without keywords"
-    assert score_rule_objectivity(rule) == "clear"
+    assert score_rule_objectivity(rule) == "unknown"
 
 
 def test_batch_score():
-    rules = [None, "Outcome may be unknown", "Outcome will be official"]
-    assert batch_score(rules) == ["unknown", "ambiguous", "clear"]
+    rules = [
+        None,
+        "ordinary text without keywords",
+        "Outcome may be unknown",
+        "Outcome will be official",
+    ]
+    assert batch_score(rules) == ["unknown", "unknown", "ambiguous", "clear"]
