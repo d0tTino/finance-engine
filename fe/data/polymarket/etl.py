@@ -13,9 +13,10 @@ import argparse
 import json
 import os
 import logging
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, TypeVar
 
 import pandas as pd
 import requests
@@ -55,19 +56,54 @@ _adapter = HTTPAdapter(max_retries=_retries)
 _session.mount("https://", _adapter)
 _session.mount("http://", _adapter)
 
+_T = TypeVar("_T")
+
+_MAX_ATTEMPTS = 3
+_BACKOFF_FACTOR = 1.0
+
+
+def _sleep_with_backoff(attempt: int) -> None:
+    delay = _BACKOFF_FACTOR * (2 ** (attempt - 1))
+    time.sleep(delay)
+
+
+def _retry_operation(
+    operation: Callable[[], _T],
+    description: str,
+    attempts: int = _MAX_ATTEMPTS,
+    treat_none_as_failure: bool = False,
+) -> Optional[_T]:
+    for attempt in range(1, attempts + 1):
+        try:
+            result = operation()
+            if treat_none_as_failure and result is None:
+                raise RuntimeError(f"{description} returned no data")
+            return result
+        except Exception:
+            logger.exception(
+                "Attempt %s/%s failed for %s", attempt, attempts, description
+            )
+            if attempt == attempts:
+                break
+            _sleep_with_backoff(attempt)
+    logger.error("Giving up on %s after %s attempts", description, attempts)
+    return None
+
 logger = logging.getLogger(__name__)
 
 
-def _get(url: str, params: Dict[str, Any] | None = None) -> Any:
-    try:
+def _get(url: str, params: Dict[str, Any] | None = None) -> Any | None:
+    def _request() -> Any:
         resp = _session.get(url, params=params, timeout=30)
         resp.raise_for_status()
-    except Exception:
-        logger.exception("GET request failed for %s", url)
-        raise
-    if resp.headers.get("content-type", "").startswith("application/json"):
-        return resp.json()
-    return resp.text
+        if resp.headers.get("content-type", "").startswith("application/json"):
+            return resp.json()
+        return resp.text
+
+    description = f"GET {url}"
+    if params:
+        description += f" with params {params}"
+    return _retry_operation(_request, description)
 
 
 def get_resolved_markets(days: int = 365) -> List[Dict[str, Any]]:
@@ -110,39 +146,79 @@ def fetch_price_history(market_id: str) -> List[Dict[str, Any]]:
     request aggregated daily trades.  If the endpoint is unavailable,
     an empty list is returned so that the ETL run continues.
     """
-    try:
-        return _get(
+    def _operation() -> Optional[List[Dict[str, Any]]]:
+        result = _get(
             f"{BASE_URL}/market/{market_id}/trades",
             {"resolution": "d"},
         )
-    except Exception:
-        logger.exception("Failed to fetch price history for %s", market_id)
+        if result is None:
+            return None
+        if not isinstance(result, list):
+            raise TypeError(
+                f"Unexpected price history payload for {market_id}: {type(result)!r}"
+            )
+        return result
+
+    data = _retry_operation(
+        _operation,
+        f"price history for {market_id}",
+        treat_none_as_failure=True,
+    )
+    if data is None:
         return []
+    return data
 
 
 def fetch_order_book(market_id: str) -> Dict[str, Any]:
     """Return order book snapshot for a market."""
-    try:
-        return _get(f"{CLOB_URL}/markets/{market_id}/book")
-    except Exception:
-        logger.exception("Failed to fetch order book for %s", market_id)
+
+    def _operation() -> Optional[Dict[str, Any]]:
+        result = _get(f"{CLOB_URL}/markets/{market_id}/book")
+        if result is None:
+            return None
+        if not isinstance(result, dict):
+            raise TypeError(
+                f"Unexpected order book payload for {market_id}: {type(result)!r}"
+            )
+        return result
+
+    data = _retry_operation(
+        _operation,
+        f"order book for {market_id}",
+        treat_none_as_failure=True,
+    )
+    if data is None:
         return {}
+    return data
 
 
 def fetch_clarification_resolution_events(
     market_id: str,
 ) -> List[Dict[str, Any]]:
     """Return clarification/resolution events for a market."""
-    try:
-        return _get(
+
+    def _operation() -> Optional[List[Dict[str, Any]]]:
+        result = _get(
             f"{BASE_URL}/clarification/resolution-events",
             {"market": market_id},
         )
-    except Exception:
-        logger.exception(
-            "Failed to fetch clarification/resolution events for %s", market_id
-        )
+        if result is None:
+            return None
+        if not isinstance(result, list):
+            raise TypeError(
+                "Unexpected clarification/resolution payload for "
+                f"{market_id}: {type(result)!r}"
+            )
+        return result
+
+    data = _retry_operation(
+        _operation,
+        f"clarification/resolution events for {market_id}",
+        treat_none_as_failure=True,
+    )
+    if data is None:
         return []
+    return data
 
 
 def save_market(
