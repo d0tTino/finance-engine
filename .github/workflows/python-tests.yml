@@ -14,8 +14,8 @@ jobs:
         with:
           python-version: '3.x'
       - name: Install dependencies
-        run: pip install pandas numpy scikit-learn pytest flake8
+        run: pip install pandas numpy scikit-learn pytest flake8 pyarrow
       - name: Lint
         run: flake8 tests/fe --extend-ignore=E501
       - name: Run tests
-        run: pytest tests/fe
+        run: pytest tests/fe tests/test_coverage.py
