@@ -41,15 +41,26 @@ class DebtSimulationService
     public const MAX_MONTHS = 600;
     private const HIGH_APR_THRESHOLD = 0.10;
 
+    /** @var array<string, array<int, string>> */
+    private const HEURISTIC_FIELD_ORDER = [
+        'interest_then_months' => ['total_interest', 'months'],
+        'months_then_interest' => ['months', 'total_interest'],
+    ];
+
     /** @var StrategyInterface[] */
     private array $strategies;
     private string $rankingHeuristic;
+
+    /** @var array<int, string> */
+    private array $rankingFields;
 
     public function __construct(?array $strategies = null)
     {
         $configured             = $strategies ?? config('ai.debt_simulation_strategies', []);
         $this->strategies       = [];
-        $this->rankingHeuristic = (string) config('ai.ranking_heuristic', self::RANKING_HEURISTIC);
+        $configuredHeuristic    = (string) config('ai.ranking_heuristic', self::RANKING_HEURISTIC);
+        $this->rankingHeuristic = $this->resolveRankingHeuristic($configuredHeuristic);
+        $this->rankingFields    = self::HEURISTIC_FIELD_ORDER[$this->rankingHeuristic];
         foreach ($configured as $strategyClass) {
             $instance = app($strategyClass);
             if ($instance instanceof StrategyInterface) {
@@ -139,8 +150,15 @@ class DebtSimulationService
                     }
                 }
 
-                usort($convergingPlans, static function (array $a, array $b): int {
-                    return [$a['total_interest'], $a['months']] <=> [$b['total_interest'], $b['months']];
+                usort($convergingPlans, function (array $a, array $b): int {
+                    $left  = [];
+                    $right = [];
+                    foreach ($this->rankingFields as $field) {
+                        $left[]  = $a[$field] ?? 0;
+                        $right[] = $b[$field] ?? 0;
+                    }
+
+                    return $left <=> $right;
                 });
 
                 $convergingPlans = array_slice($convergingPlans, 0, $maxOptions);
@@ -189,14 +207,16 @@ class DebtSimulationService
                         ? 'maximizes interest savings'
                         : ('non_converging' === $status ? 'plan does not converge' : 'less interest saved or longer duration');
 
+                    $heuristicScores = [];
+                    foreach ($this->rankingFields as $field) {
+                        $heuristicScores[$field] = $plan[$field] ?? null;
+                    }
+
                     $plan['meta'] = array_merge(
                         $plan['meta'],
                         [
                             'ranking_heuristic' => $this->rankingHeuristic,
-                            'heuristic_scores'  => [
-                                'total_interest' => $plan['total_interest'],
-                                'months'         => $plan['months'],
-                            ],
+                            'heuristic_scores'  => $heuristicScores,
                             'tradeoff_drivers'  => $plan['cost_of_deviation'],
                             'ranking_reason'    => $rankingReason,
                             'tradeoffs'         => $tradeoffString,
@@ -214,6 +234,15 @@ class DebtSimulationService
         );
     }
 
+    private function resolveRankingHeuristic(string $heuristic): string
+    {
+        if (isset(self::HEURISTIC_FIELD_ORDER[$heuristic])) {
+            return $heuristic;
+        }
+
+        return self::RANKING_HEURISTIC;
+    }
+
     /**
      * Generate the monthly schedule for one specific strategy.
      *
@@ -223,7 +252,7 @@ class DebtSimulationService
      *
      * @return array<string, mixed>
      */
-    private function generateSchedule(array $debts, float $monthlyBudget, StrategyInterface $strategy): array
+    protected function generateSchedule(array $debts, float $monthlyBudget, StrategyInterface $strategy): array
     {
         $debts = array_map(static function (array $debt): array {
             $debt['balance']     = (float) $debt['balance'];
