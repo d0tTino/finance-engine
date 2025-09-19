@@ -32,7 +32,16 @@ final class DebtSimulationCacheTtlTest extends TestCase
 
         $service->simulate($userId, $groupId, $accounts, $budget, $maxOptions);
 
-        $hash     = hash('sha256', serialize([$accounts, $budget, $maxOptions]));
+        $normalizedAccounts = $accounts;
+        usort($normalizedAccounts, static function (array $a, array $b): int {
+            return ($a['account_id'] ?? 0) <=> ($b['account_id'] ?? 0);
+        });
+        $heuristic = (string) config('ai.ranking_heuristic', DebtSimulationService::RANKING_HEURISTIC);
+        $strategies = array_map(
+            static fn (string $strategyClass): string => get_class(app($strategyClass)),
+            config('ai.debt_simulation_strategies', [])
+        );
+        $hash     = hash('sha256', serialize([$normalizedAccounts, $budget, $maxOptions, $heuristic, $strategies]));
         $cacheKey = sprintf('u:%s:g:%s:debt-sim-%s', $userId, $groupId, $hash);
         self::assertTrue(Cache::has($cacheKey));
 
