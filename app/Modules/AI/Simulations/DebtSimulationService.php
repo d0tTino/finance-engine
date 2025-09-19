@@ -68,6 +68,10 @@ class DebtSimulationService
      *                          and may contain `id`, `name` and `min_payment`.
      * @param float $budget     Total monthly amount available for debt payments.
      * @param int   $maxOptions Maximum number of plans to return.
+     *                          Converging plans are prioritised and only if
+     *                          capacity remains will non-converging plans be
+     *                          appended with their convergence status so the
+     *                          overall total never exceeds the requested limit.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -139,11 +143,23 @@ class DebtSimulationService
                     }
                 }
 
+                // Converging plans are always ranked before non-converging plans.
                 usort($convergingPlans, static function (array $a, array $b): int {
                     return [$a['total_interest'], $a['months']] <=> [$b['total_interest'], $b['months']];
                 });
 
                 $convergingPlans = array_slice($convergingPlans, 0, $maxOptions);
+
+                // Non-converging plans are only returned when there is remaining capacity after
+                // selecting the best converging candidates. They are ranked using the same
+                // heuristic but always trail the converging entries so the total never exceeds
+                // the requested maximum.
+                usort($nonConvergingPlans, static function (array $a, array $b): int {
+                    return [$a['total_interest'], $a['months']] <=> [$b['total_interest'], $b['months']];
+                });
+
+                $availableSlots    = max(0, $maxOptions - count($convergingPlans));
+                $nonConvergingPlans = array_slice($nonConvergingPlans, 0, $availableSlots);
 
                 $plans = array_merge($convergingPlans, $nonConvergingPlans);
 
