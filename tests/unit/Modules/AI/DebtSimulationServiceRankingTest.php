@@ -8,6 +8,7 @@ use FireflyIII\Modules\AI\Simulations\DebtSimulationService;
 use FireflyIII\Modules\AI\Simulations\Strategies\AvalancheStrategy;
 use FireflyIII\Modules\AI\Simulations\Strategies\BalancedStrategy;
 use FireflyIII\Modules\AI\Simulations\Strategies\SnowballStrategy;
+use FireflyIII\Modules\AI\Simulations\Strategies\StrategyInterface;
 use Illuminate\Support\Facades\Cache;
 use Tests\integration\TestCase;
 
@@ -36,13 +37,30 @@ final class DebtSimulationServiceRankingTest extends TestCase
 
         $plans = $service->simulate((string) $user->id, '1', $accounts, 300.0, 3);
 
+        $rankingOrder = [];
+        if ([] !== $plans) {
+            $rankingOrder = array_keys($plans[0]['meta']['heuristic_scores']);
+        }
+
         $converging = array_filter(
             $plans,
             static fn (array $plan): bool => 'non_converging' !== ($plan['status'] ?? 'ok')
         );
-        $sorted = $converging;
-        usort($sorted, static fn (array $a, array $b): int => [$a['total_interest'], $a['months']] <=> [$b['total_interest'], $b['months']]);
-        self::assertSame($sorted, array_values($converging));
+        $converging = array_values($converging);
+        $sorted      = $converging;
+        if ([] !== $sorted && [] !== $rankingOrder) {
+            usort($sorted, static function (array $a, array $b) use ($rankingOrder): int {
+                $left  = [];
+                $right = [];
+                foreach ($rankingOrder as $field) {
+                    $left[]  = $a[$field];
+                    $right[] = $b[$field];
+                }
+
+                return $left <=> $right;
+            });
+            self::assertSame($sorted, $converging);
+        }
 
         $bestInterest = $plans[0]['total_interest'];
         $bestMonths   = $plans[0]['months'];
@@ -64,8 +82,9 @@ final class DebtSimulationServiceRankingTest extends TestCase
             self::assertIsString($plan['meta']['ranking_reason']);
             self::assertIsString($plan['meta']['tradeoffs']);
             self::assertIsArray($plan['meta']['heuristic_scores']);
-            self::assertArrayHasKey('total_interest', $plan['meta']['heuristic_scores']);
-            self::assertArrayHasKey('months', $plan['meta']['heuristic_scores']);
+            if ([] !== $rankingOrder) {
+                self::assertSame($rankingOrder, array_keys($plan['meta']['heuristic_scores']));
+            }
             self::assertIsArray($plan['meta']['tradeoff_drivers']);
             self::assertArrayHasKey('currency', $plan['meta']['tradeoff_drivers']);
             self::assertArrayHasKey('time_months', $plan['meta']['tradeoff_drivers']);
@@ -74,21 +93,52 @@ final class DebtSimulationServiceRankingTest extends TestCase
 
     public function testRankingHeuristicCanBeConfigured(): void
     {
-        Cache::flush();
-        config(['ai.ranking_heuristic' => 'months_then_interest']);
-
-        $service = new DebtSimulationService();
-        $user    = $this->createAuthenticatedUser();
-
-        $accounts = [
+        $strategies = [
+            AvalancheStrategy::class,
+            SnowballStrategy::class,
+            BalancedStrategy::class,
+        ];
+        $accounts   = [
             ['account_id' => 1, 'name' => 'Loan1', 'balance' => 1000.0, 'apr' => 0.10, 'min_payment' => 0.0],
             ['account_id' => 2, 'name' => 'Loan2', 'balance' => 500.0, 'apr' => 0.05, 'min_payment' => 0.0],
         ];
+        $user       = $this->createAuthenticatedUser();
 
-        $plans = $service->simulate((string) $user->id, '1', $accounts, 300.0, 2);
+        Cache::flush();
+        config(['ai.ranking_heuristic' => DebtSimulationService::RANKING_HEURISTIC]);
+        $defaultService = new DebtSimulationService($strategies);
+        $defaultPlans   = $defaultService->simulate((string) $user->id, '1', $accounts, 300.0, 3);
 
-        foreach ($plans as $plan) {
-            self::assertSame('months_then_interest', $plan['meta']['ranking_heuristic']);
+        self::assertNotEmpty($defaultPlans);
+        self::assertSame(['total_interest', 'months'], array_keys($defaultPlans[0]['meta']['heuristic_scores']));
+
+        Cache::flush();
+        config(['ai.ranking_heuristic' => 'months_then_interest']);
+        $monthsService = new DebtSimulationService($strategies);
+        $monthsPlans   = $monthsService->simulate((string) $user->id, '1', $accounts, 300.0, 3);
+
+        self::assertNotEmpty($monthsPlans);
+        self::assertSame(['months', 'total_interest'], array_keys($monthsPlans[0]['meta']['heuristic_scores']));
+        self::assertSame('months_then_interest', $monthsPlans[0]['meta']['ranking_heuristic']);
+
+        Cache::flush();
+        config(['ai.ranking_heuristic' => DebtSimulationService::RANKING_HEURISTIC]);
+        $stubInterestService = new StubDebtSimulationService();
+        $interestPlans       = $stubInterestService->simulate((string) $user->id, '1', $accounts, 300.0, 2);
+        $interestOrder       = array_column($interestPlans, 'strategy');
+
+        Cache::flush();
+        config(['ai.ranking_heuristic' => 'months_then_interest']);
+        $stubMonthsService = new StubDebtSimulationService();
+        $monthsPlansStub   = $stubMonthsService->simulate((string) $user->id, '1', $accounts, 300.0, 2);
+        $monthsOrderStub   = array_column($monthsPlansStub, 'strategy');
+
+        self::assertSame(['low_interest', 'fast_payoff'], $interestOrder);
+        self::assertSame(['fast_payoff', 'low_interest'], $monthsOrderStub);
+        self::assertSame('months_then_interest', $monthsPlansStub[0]['meta']['ranking_heuristic']);
+
+        foreach ($monthsPlansStub as $plan) {
+            self::assertSame(['months', 'total_interest'], array_keys($plan['meta']['heuristic_scores']));
             self::assertIsArray($plan['meta']['tradeoff_drivers']);
             self::assertArrayHasKey('currency', $plan['meta']['tradeoff_drivers']);
             self::assertArrayHasKey('time_months', $plan['meta']['tradeoff_drivers']);
@@ -120,5 +170,87 @@ final class DebtSimulationServiceRankingTest extends TestCase
 
         self::assertSame($strategiesA, $strategiesB);
         self::assertSame('avalanche', $strategiesA[0]);
+    }
+}
+
+final class StubLowInterestStrategy implements StrategyInterface
+{
+    public function getName(): string
+    {
+        return 'low_interest';
+    }
+
+    public function getExplanation(): string
+    {
+        return 'Prioritizes the lowest overall interest paid.';
+    }
+
+    public function reset(): void
+    {
+    }
+
+    public function selectTargetDebt(array $debts): ?int
+    {
+        return 0;
+    }
+}
+
+final class StubFastPayoffStrategy implements StrategyInterface
+{
+    public function getName(): string
+    {
+        return 'fast_payoff';
+    }
+
+    public function getExplanation(): string
+    {
+        return 'Trades higher interest for a shorter payoff window.';
+    }
+
+    public function reset(): void
+    {
+    }
+
+    public function selectTargetDebt(array $debts): ?int
+    {
+        return 0;
+    }
+}
+
+final class StubDebtSimulationService extends DebtSimulationService
+{
+    public function __construct()
+    {
+        parent::__construct([
+            StubLowInterestStrategy::class,
+            StubFastPayoffStrategy::class,
+        ]);
+    }
+
+    protected function generateSchedule(array $debts, float $monthlyBudget, StrategyInterface $strategy): array
+    {
+        if ($strategy instanceof StubLowInterestStrategy) {
+            return [
+                'schedule'          => [],
+                'total_interest'    => 100.0,
+                'months'            => 24,
+                'monthly_cash_flow' => [],
+                'recommendations'   => [],
+                'status'            => 'ok',
+            ];
+        }
+
+        if ($strategy instanceof StubFastPayoffStrategy) {
+            return [
+                'schedule'          => [],
+                'total_interest'    => 140.0,
+                'months'            => 18,
+                'monthly_cash_flow' => [],
+                'recommendations'   => [],
+                'status'            => 'ok',
+            ];
+        }
+
+        return parent::generateSchedule($debts, $monthlyBudget, $strategy);
     }
 }
