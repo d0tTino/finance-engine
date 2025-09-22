@@ -211,17 +211,39 @@ class DebtSimulationService
                         'time_months' => $plan['months'] - $bestMonths,
                     ];
 
-                    $tradeoffString = $plan['is_optimal']
-                        ? 'no tradeoffs'
-                        : sprintf(
-                            'loses %.2f in interest savings and %d more months',
-                            $plan['cost_of_deviation']['currency'],
-                            $plan['cost_of_deviation']['time_months']
-                        );
+                    $currencyDeviation = (float) $plan['cost_of_deviation']['currency'];
+                    $monthsDeviation   = (int) $plan['cost_of_deviation']['time_months'];
 
-                    $rankingReason = $plan['is_optimal']
-                        ? 'maximizes interest savings'
-                        : ('non_converging' === $status ? 'plan does not converge' : 'less interest saved or longer duration');
+                    if ($plan['is_optimal']) {
+                        $tradeoffString = 'no tradeoffs';
+                        $rankingReason  = 'maximizes interest savings';
+                    } else {
+                        if ($monthsDeviation < 0) {
+                            $tradeoffString = sprintf(
+                                'loses %.2f in interest savings but %d fewer months',
+                                $currencyDeviation,
+                                abs($monthsDeviation)
+                            );
+                            $rankingReason = 'less interest saved despite faster payoff';
+                        } elseif (0 === $monthsDeviation) {
+                            $tradeoffString = sprintf(
+                                'loses %.2f in interest savings with same payoff time',
+                                $currencyDeviation
+                            );
+                            $rankingReason = 'less interest saved with same payoff time';
+                        } else {
+                            $tradeoffString = sprintf(
+                                'loses %.2f in interest savings and %d more months',
+                                $currencyDeviation,
+                                $monthsDeviation
+                            );
+                            $rankingReason = 'less interest saved or longer duration';
+                        }
+
+                        if ('non_converging' === $status) {
+                            $rankingReason = 'plan does not converge';
+                        }
+                    }
 
                     $heuristicScores = [];
                     foreach ($this->rankingFields as $field) {

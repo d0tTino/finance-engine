@@ -91,6 +91,38 @@ final class DebtSimulationServiceRankingTest extends TestCase
         }
     }
 
+    public function testFasterNonOptimalPlanUsesFewerMonthsMessaging(): void
+    {
+        Cache::flush();
+        config(['ai.ranking_heuristic' => DebtSimulationService::RANKING_HEURISTIC]);
+
+        $service = new StubDebtSimulationService();
+        $user    = $this->createAuthenticatedUser();
+
+        $accounts = [
+            ['account_id' => 1, 'name' => 'Loan1', 'balance' => 1000.0, 'apr' => 0.10, 'min_payment' => 0.0],
+        ];
+
+        $plans = $service->simulate((string) $user->id, '1', $accounts, 300.0, 2);
+
+        self::assertCount(2, $plans);
+
+        $fastPlan = null;
+        foreach ($plans as $plan) {
+            if ('fast_payoff' === $plan['strategy']) {
+                $fastPlan = $plan;
+                break;
+            }
+        }
+
+        self::assertNotNull($fastPlan);
+        self::assertIsArray($fastPlan);
+        self::assertFalse($fastPlan['is_optimal']);
+        self::assertSame(-6, $fastPlan['cost_of_deviation']['time_months']);
+        self::assertSame('loses 40.00 in interest savings but 6 fewer months', $fastPlan['meta']['tradeoffs']);
+        self::assertSame('less interest saved despite faster payoff', $fastPlan['meta']['ranking_reason']);
+    }
+
     public function testRankingHeuristicCanBeConfigured(): void
     {
         $strategies = [
