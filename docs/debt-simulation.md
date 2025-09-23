@@ -22,13 +22,13 @@ Simulation results are cached per user to speed up repeated requests. The cache 
     {
       "account_id": "af13c6c4-1d05-4d26-8b16-ef3d988c1f02",
       "balance": 4500,
-      "apr": 15.99,
+      "apr": 0.1599,
       "minimum_payment": 75
     },
     {
       "account_id": "b2a1a148-9b91-455c-8964-fba303b3f7ca",
       "balance": 1200,
-      "apr": 7.5,
+      "apr": 0.075,
       "minimum_payment": 25
     }
   ]
@@ -44,10 +44,12 @@ Simulation results are cached per user to speed up repeated requests. The cache 
 - `accounts` – Array of debts to simulate. Each account contains:
   - `account_id` – Unique account identifier (UUID).
   - `balance` – Current outstanding balance.
-  - `apr` – Annual percentage rate in percent (e.g. `7.5` for 7.5%).
+  - `apr` – Annual percentage rate as a decimal fraction (e.g. `0.21` for 21%).
   - `minimum_payment` – Minimum amount due each month.
 
-> **APR handling:** Values must be provided as percentages. The service converts APR to monthly interest internally.
+> **APR handling:** Values must be provided as decimal fractions (e.g. `0.21` for 21%). The service converts APR to monthly interest internally.
+>
+> For example, the first account in the request above represents a 15.99% APR as `0.1599`. With a $4,500 balance the monthly interest is calculated as `4500 * 0.1599 / 12 ≈ 59.96`, which rounds to the `interest` value shown in the response schedule.
 
 > **User ID verification:** The endpoint validates that every account belongs to the provided `user_id` or `group_id` to prevent cross-user data access.
 
