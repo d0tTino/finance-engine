@@ -146,7 +146,7 @@ Simulation results are cached per user to speed up repeated requests. The cache 
   - `rank` – Position of the plan when sorted by total interest (1 is best).
   - `is_optimal` – Indicates whether the plan is the top-ranked option.
   - `plan` – Detailed strategy output:
-    - `strategy` – Name of the heuristic applied (`avalanche`, `snowball` or `balanced`).
+    - `strategy` – Name of the heuristic applied (`avalanche`, `snowball`, `balanced`, or `ml`).
     - `schedule` – Monthly breakdown of payments, balances, interest and cash flow.
     - `recommendations` – Array of refinance suggestions derived from the input debts.
   - `metrics` – Aggregated plan results:
@@ -165,19 +165,23 @@ Simulation results are cached per user to speed up repeated requests. The cache 
 
 ## Heuristics
 
-The service supports three payoff strategies:
+The service supports four payoff strategies:
 
 ### Avalanche
 
-Prioritises accounts with the highest interest rate.
+Prioritises accounts with the highest interest rate. When every balance reaches zero the selector returns `null`, signalling that no further overpayments should be scheduled.
 
 ### Snowball
 
-Targets the smallest balance first to build momentum.
+Targets the smallest balance first to build momentum. It shares the same termination behaviour as avalanche—once all balances are cleared the strategy stops recommending additional targets.
 
 ### Balanced
 
-Distributes extra payments proportionally across outstanding debts using a smooth weighted round-robin algorithm so larger balances receive additional payments more frequently. If the monthly budget is less than the combined minimum payments, the strategy applies the minimums first and no extra funds are allocated, leaving the monthly `cash_flow` at `0`.
+Distributes extra payments proportionally across outstanding debts using a smooth weighted round-robin algorithm so larger balances receive additional payments more frequently. Minimum payments are always covered first; if they consume the entire monthly budget or no eligible balances remain, the strategy produces no extra allocations for that cycle.
+
+### Machine Learning (ml)
+
+Invokes an ONNX Runtime model to score each debt and choose the highest-ranked target. Should the configured model file be missing, fail to load, or return scores below the configured threshold, the strategy falls back to the avalanche heuristic to maintain deterministic behaviour.
 
 ## Ranking and Deviation
 

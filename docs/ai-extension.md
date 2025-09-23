@@ -7,7 +7,7 @@ Firefly III includes experimental AI-powered features that extend the core appli
 - `POST /api/v1/plaid-hook` – Receives webhooks from Plaid and stores transaction groups after verifying the request signature.
 - `GET /api/v1/goals/{goal}/projection` – Generates a Monte Carlo projection for a goal using parameters like `initial`, `mean`, `stdev`, and `years`.
 - `POST /api/v1/signals` – Accepts trading signals and forwards them to the configured broker.
-- `POST /api/v1/simulations/debt` – Evaluates debt payoff strategies using avalanche and snowball heuristics.
+- `POST /api/v1/simulations/debt` – Evaluates debt payoff strategies using avalanche, snowball, balanced, and machine-learning heuristics.
 
 ## Modules
 
@@ -21,7 +21,14 @@ Uses a Monte Carlo simulation service to estimate goal growth and returns a JSON
 Validates trading signals (`asset`, `action`, `confidence`) and relays them via the broker SDK to external trading platforms.
 
 ### Debt Simulation
-Runs heuristic strategies to generate ranked payoff plans for outstanding debts. See [Debt Simulation](debt-simulation.md) for request and response details.
+Runs heuristic strategies to generate ranked payoff plans for outstanding debts. The simulator currently includes:
+
+- **Avalanche** – Puts every extra dollar toward the debt with the highest APR. When no balances remain, the selector returns `null`, signalling the scheduler to stop allocating overpayments.
+- **Snowball** – Targets the smallest balance first to create early wins. It also yields `null` once every tracked debt is paid off so the cycle exits cleanly.
+- **Balanced** – Uses a smooth weighted round-robin algorithm to spread surplus payments proportionally across outstanding balances. If minimum payments exhaust the monthly budget or all debts reach zero, no additional allocations are made.
+- **ML** – Invokes an ONNX Runtime model to choose the next debt based on learned patterns. Whenever the model file is missing, fails to load, or scores stay below the configured threshold, it falls back to the avalanche heuristic.
+
+See the [Debt Simulation](debt-simulation.md) documentation—especially the [heuristics overview](debt-simulation.md#heuristics)—for request/response schemas and ranking details.
 
 ### Webhooks & Event Bus
 `FinanceEventService` publishes finance events over Redis channels prefixed with `ume.events.finance.` for downstream consumers.
