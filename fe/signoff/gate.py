@@ -66,7 +66,12 @@ def approve(
     sample = strategy_report.get("sample_size", 0)
     mdd = strategy_report.get("max_drawdown", float("inf"))
     pval = strategy_report.get("p_value", 1.0)
-    return sample >= sample_threshold and mdd <= mdd_threshold and pval < alpha_threshold
+
+    return (
+        sample >= sample_threshold
+        and abs(mdd) <= mdd_threshold
+        and pval < alpha_threshold
+    )
 
 
 __all__ = ["approve", "MIN_SAMPLE", "MAX_MDD", "ALPHA"]
