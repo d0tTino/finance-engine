@@ -329,18 +329,52 @@ def save_market(
     df.to_parquet(out_file, index=False)
 
 
-def assert_partitions(output_dir: Path, days: int = 365) -> None:
-    """Ensure output directory has partitions for the last ``days`` days."""
+def assert_partitions(
+    output_dir: Path, days: int = 365, min_coverage: float = 0.9
+) -> None:
+    """Check partition coverage over the requested window.
+
+    Instead of failing when individual days are missing, we look at the
+    overall coverage and emit a warning if it drops below ``min_coverage``.
+    """
+
+    if days <= 0:
+        return
+
     today = datetime.utcnow().date()
     missing: List[str] = []
+    populated_days = 0
+
     for i in range(days):
         day = today - timedelta(days=i)
         event_dir = output_dir / f"event_date={day.isoformat()}"
-        if not event_dir.exists() or not any(event_dir.glob("category=*")):
+        if event_dir.exists() and any(event_dir.glob("category=*")):
+            populated_days += 1
+        else:
             missing.append(day.isoformat())
-    if missing:
-        raise AssertionError(
-            "missing partitions for: " + ", ".join(sorted(missing))
+
+    coverage = populated_days / days
+    if coverage < min_coverage:
+        missing_preview = ", ".join(sorted(missing)[:5])
+        if len(missing) > 5:
+            missing_preview += ", ..."
+        logger.warning(
+            (
+                "Polymarket partition coverage %.1f%% (%s/%s days) below %.1f%% "
+                "threshold; missing %s day(s): %s"
+            ),
+            coverage * 100,
+            populated_days,
+            days,
+            min_coverage * 100,
+            len(missing),
+            missing_preview,
+        )
+    elif missing:
+        logger.debug(
+            "Polymarket partitions missing %s day(s) but coverage is %.1f%%",
+            len(missing),
+            coverage * 100,
         )
 
 

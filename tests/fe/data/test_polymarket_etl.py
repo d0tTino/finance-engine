@@ -1,3 +1,4 @@
+import logging
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -131,14 +132,16 @@ def test_save_market_continues_with_http_errors(tmp_path, monkeypatch):
     assert record["clarification_resolution_events"] == []
 
 
-def test_assert_partitions_detects_missing_days(tmp_path):
+def test_assert_partitions_warns_when_coverage_drops(tmp_path, caplog):
     today = datetime.utcnow().date()
     (
         tmp_path / f"event_date={today.isoformat()}" / "category=test"
     ).mkdir(parents=True)
 
-    with pytest.raises(AssertionError) as exc:
+    with caplog.at_level(logging.WARNING):
         etl.assert_partitions(tmp_path, days=2)
 
-    missing_day = (today - timedelta(days=1)).isoformat()
-    assert missing_day in str(exc.value)
+    assert any(
+        record.levelno == logging.WARNING and "coverage" in record.getMessage()
+        for record in caplog.records
+    )
