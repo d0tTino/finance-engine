@@ -36,3 +36,19 @@ def test_approve_with_strict_config():
     cfg = CONFIG_DIR / "strict.json"
     report = {"sample_size": MIN_SAMPLE, "max_drawdown": MAX_MDD, "p_value": ALPHA - 0.01}
     assert not approve(report, config_path=cfg)
+
+
+def test_approve_handles_negative_drawdown():
+    failing_report = {
+        "sample_size": MIN_SAMPLE,
+        "max_drawdown": -0.35,
+        "p_value": ALPHA - 0.01,
+    }
+    passing_report = {
+        "sample_size": MIN_SAMPLE,
+        "max_drawdown": -0.1,
+        "p_value": ALPHA - 0.01,
+    }
+
+    assert not approve(failing_report)
+    assert approve(passing_report)
