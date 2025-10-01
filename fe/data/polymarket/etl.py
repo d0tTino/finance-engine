@@ -281,13 +281,19 @@ def save_market(
     )
     bids = order_book_data.get("bids")
     asks = order_book_data.get("asks")
-    if ts and bids and asks:
+
+    def _normalize_levels(levels: Any) -> List[Any]:
+        if isinstance(levels, list):
+            return levels
+        return []
+
+    if ts:
         try:
             ob_model = OrderBookSnapshot(
                 market_id=market["id"],
                 timestamp=ts,
-                bids=bids,
-                asks=asks,
+                bids=_normalize_levels(bids),
+                asks=_normalize_levels(asks),
                 event_date=event_date,
                 category=category,
             )
