@@ -40,7 +40,9 @@ def make_quote(
     """
 
     mid = 0.5 * (yes + no)
-    width = spread * (1 - liq_weight * liquidity)
+    raw_width = spread * (1 - liq_weight * liquidity)
+    min_width = 0.0
+    width = max(raw_width, min_width)
     adjustment = skew_weight * skew * width
 
     bid = max(0.0, mid - width / 2 - adjustment)
