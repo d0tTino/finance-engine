@@ -4,8 +4,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pandas as pd
 import pytest
+
+pd = pytest.importorskip("pandas")
 
 
 def test_wheel_install_and_strategy_load(tmp_path: Path) -> None:
@@ -34,7 +35,12 @@ def test_wheel_install_and_strategy_load(tmp_path: Path) -> None:
     )
 
     sys.path.insert(0, str(target))
-    from fe.strategies.deadline_no import DeadlineNoStrategy
+    from polymarket_alpha.strategies.deadline_no import DeadlineNoStrategy
+
+    assert (
+        DeadlineNoStrategy.__module__
+        == "polymarket_alpha.strategies.deadline_no"
+    ), "Strategy should be loaded from installed wheel"
 
     df = pd.DataFrame(
         {
