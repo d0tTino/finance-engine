@@ -97,8 +97,15 @@ description = \"Selected strategy implementations for Polymarket Alpha\"
             cwd=tmpdir,
         )
 
-    # Rename generated wheel to expected filename
-    wheel = next(dist_dir.glob("polymarket_alpha-*.whl"))
+    # Rename the newest generated wheel to the expected filename
+    wheels = sorted(
+        dist_dir.glob("polymarket_alpha-*.whl"),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+    if not wheels:
+        raise FileNotFoundError("No polymarket_alpha wheel found in dist directory")
+    wheel = wheels[0]
     target = dist_dir / f"polymarket_alpha_{version}.whl"
     wheel.rename(target)
     return target
