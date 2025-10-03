@@ -89,7 +89,12 @@ def _retry_operation(
     logger.error("Giving up on %s after %s attempts", description, attempts)
     return None
 
+
 logger = logging.getLogger(__name__)
+
+
+class PartitionCoverageError(RuntimeError):
+    """Raised when partition coverage falls below the minimum threshold."""
 
 
 def _get(url: str, params: Dict[str, Any] | None = None) -> Any | None:
@@ -341,7 +346,8 @@ def assert_partitions(
     """Check partition coverage over the requested window.
 
     Instead of failing when individual days are missing, we look at the
-    overall coverage and emit a warning if it drops below ``min_coverage``.
+    overall coverage and raise :class:`PartitionCoverageError` if it drops
+    below ``min_coverage``.
     """
 
     if days <= 0:
@@ -364,17 +370,19 @@ def assert_partitions(
         missing_preview = ", ".join(sorted(missing)[:5])
         if len(missing) > 5:
             missing_preview += ", ..."
-        logger.warning(
+        raise PartitionCoverageError(
             (
                 "Polymarket partition coverage %.1f%% (%s/%s days) below %.1f%% "
                 "threshold; missing %s day(s): %s"
-            ),
-            coverage * 100,
-            populated_days,
-            days,
-            min_coverage * 100,
-            len(missing),
-            missing_preview,
+            )
+            % (
+                coverage * 100,
+                populated_days,
+                days,
+                min_coverage * 100,
+                len(missing),
+                missing_preview,
+            )
         )
     elif missing:
         logger.debug(
@@ -406,7 +414,11 @@ def cli() -> None:
         help="Number of days of resolved markets to process",
     )
     args = parser.parse_args()
-    main(args.output_dir, args.days)
+    try:
+        main(args.output_dir, args.days)
+    except PartitionCoverageError as exc:
+        logger.error("%s", exc)
+        raise SystemExit(1) from exc
 
 
 if __name__ == "__main__":
