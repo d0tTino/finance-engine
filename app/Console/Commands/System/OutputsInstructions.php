@@ -27,6 +27,7 @@ namespace FireflyIII\Console\Commands\System;
 use Carbon\Carbon;
 use FireflyIII\Support\System\GeneratesInstallationId;
 use Illuminate\Console\Command;
+use Illuminate\Encryption\MissingAppKeyException;
 
 class OutputsInstructions extends Command
 {
@@ -41,7 +42,13 @@ class OutputsInstructions extends Command
      */
     public function handle(): int
     {
-        $this->generateInstallationId();
+        try {
+            $this->generateInstallationId();
+        } catch (MissingAppKeyException) {
+            $this->warn('Skipping installation instructions because APP_KEY is not configured.');
+
+            return self::SUCCESS;
+        }
         if ('update' === $this->argument('task')) {
             $this->updateInstructions();
         }
@@ -49,7 +56,7 @@ class OutputsInstructions extends Command
             $this->installInstructions();
         }
 
-        return 0;
+        return self::SUCCESS;
     }
 
     /**
