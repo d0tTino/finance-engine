@@ -377,9 +377,14 @@ class DebtSimulationService
                 unset($target);
             }
 
-            $totalPayment      = array_sum($paymentPlan);
-            $totalInterest    += $interestThisMonth;
-            $cashFlowTimeline[] = ['month' => $month, 'cash_flow' => $remainingBudget];
+            $totalPayment    = array_sum($paymentPlan);
+            $unusedBudget    = max($remainingBudget, 0.0);
+            $totalInterest  += $interestThisMonth;
+            $cashFlowTimeline[] = [
+                'month'         => $month,
+                'cash_flow'     => $totalPayment,
+                'unused_budget' => $unusedBudget,
+            ];
 
             $balanceSnapshot = [];
             $balanceAfter    = 0.0;
@@ -390,12 +395,13 @@ class DebtSimulationService
             }
 
             $schedule[] = [
-                'month'     => $month,
-                'payments'  => $paymentPlan,
-                'balances'  => $balanceSnapshot,
-                'interest'  => $interestThisMonth,
-                'payment'   => $totalPayment,
-                'cash_flow' => $remainingBudget,
+                'month'         => $month,
+                'payments'      => $paymentPlan,
+                'balances'      => $balanceSnapshot,
+                'interest'      => $interestThisMonth,
+                'payment'       => $totalPayment,
+                'cash_flow'     => $totalPayment,
+                'unused_budget' => $unusedBudget,
             ];
 
             if ($balanceAfter > $balanceBefore) {
