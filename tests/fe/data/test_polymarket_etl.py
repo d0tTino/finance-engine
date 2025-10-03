@@ -1,4 +1,3 @@
-import logging
 import sys
 import types
 from datetime import datetime, timedelta
@@ -259,16 +258,38 @@ def test_save_market_continues_with_http_errors(tmp_path, monkeypatch):
     assert record["clarification_resolution_events"] == []
 
 
-def test_assert_partitions_warns_when_coverage_drops(tmp_path, caplog):
+def test_assert_partitions_succeeds_with_sufficient_coverage(tmp_path):
+    today = datetime.utcnow().date()
+    for offset in range(2):
+        day = today - timedelta(days=offset)
+        (
+            tmp_path / f"event_date={day.isoformat()}" / "category=test"
+        ).mkdir(parents=True)
+
+    etl.assert_partitions(tmp_path, days=2)
+
+
+def test_assert_partitions_raises_when_coverage_drops(tmp_path):
     today = datetime.utcnow().date()
     (
         tmp_path / f"event_date={today.isoformat()}" / "category=test"
     ).mkdir(parents=True)
 
-    with caplog.at_level(logging.WARNING):
+    with pytest.raises(etl.PartitionCoverageError) as excinfo:
         etl.assert_partitions(tmp_path, days=2)
 
-    assert any(
-        record.levelno == logging.WARNING and "coverage" in record.getMessage()
-        for record in caplog.records
-    )
+    assert "coverage" in str(excinfo.value)
+
+
+def test_cli_exits_non_zero_on_partition_failure(monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["polymarket-etl"])
+
+    def failing_main(*args, **kwargs):
+        raise etl.PartitionCoverageError("boom")
+
+    monkeypatch.setattr(etl, "main", failing_main)
+
+    with pytest.raises(SystemExit) as excinfo:
+        etl.cli()
+
+    assert excinfo.value.code == 1
