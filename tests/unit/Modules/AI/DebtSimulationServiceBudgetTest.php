@@ -35,7 +35,15 @@ final class DebtSimulationServiceBudgetTest extends TestCase
         $plans = $service->simulate($userId, $groupId, $accounts, 50.0, 1);
 
         foreach ($plans[0]['schedule'] as $month) {
-            self::assertGreaterThanOrEqual(0.0, $month['cash_flow']);
+            self::assertSame($month['payment'], $month['cash_flow']);
+            self::assertArrayHasKey('unused_budget', $month);
+            self::assertGreaterThanOrEqual(0.0, $month['unused_budget']);
+        }
+
+        foreach ($plans[0]['monthly_cash_flow'] as $index => $month) {
+            self::assertSame($plans[0]['schedule'][$index]['cash_flow'], $month['cash_flow']);
+            self::assertArrayHasKey('unused_budget', $month);
+            self::assertGreaterThanOrEqual(0.0, $month['unused_budget']);
         }
     }
 

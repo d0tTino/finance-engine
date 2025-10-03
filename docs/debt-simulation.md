@@ -73,7 +73,8 @@ Simulation results are cached per user to speed up repeated requests. The cache 
 
             "interest": 60,
             "payment": 500,
-            "cash_flow": 0
+            "cash_flow": 500,
+            "unused_budget": 0
           }
 
         ],
@@ -86,7 +87,7 @@ Simulation results are cached per user to speed up repeated requests. The cache 
         "time_to_payoff_months": 34,
         "total_interest_paid": 516.09,
         "monthly_cash_flow": [
-          {"month": 1, "cash_flow": 0}
+          {"month": 1, "cash_flow": 500, "unused_budget": 0}
         ]
       },
       "cost_of_deviation": {
@@ -111,7 +112,8 @@ Simulation results are cached per user to speed up repeated requests. The cache 
 
             "interest": 57.19,
             "payment": 500,
-            "cash_flow": 0
+            "cash_flow": 500,
+            "unused_budget": 0
           }
 
         ],
@@ -124,7 +126,7 @@ Simulation results are cached per user to speed up repeated requests. The cache 
         "time_to_payoff_months": 36,
         "total_interest_paid": 577.97,
         "monthly_cash_flow": [
-          {"month": 1, "cash_flow": 0}
+          {"month": 1, "cash_flow": 500, "unused_budget": 0}
         ]
       },
       "cost_of_deviation": {
@@ -155,7 +157,7 @@ Simulation results are cached per user to speed up repeated requests. The cache 
     - `interest_saved` – Interest saved compared to the optimal plan (negative values indicate extra interest).
     - `time_to_payoff_months` – Number of months to clear all debts.
     - `total_interest_paid` – Total interest paid over the lifetime of the plan.
-    - `monthly_cash_flow` – Remaining budget for each month.
+    - `monthly_cash_flow` – Actual cash payments (and unused budget) for each month.
   - `cost_of_deviation` – Extra cost versus the optimal plan:
     - `currency` – Additional interest compared to the optimal plan.
     - `time_months` – Additional duration compared to the optimal plan in months.
