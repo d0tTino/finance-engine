@@ -163,19 +163,19 @@
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump"
         ],
         "post-update-cmd": [
-            "@php artisan config:clear",
-            "@php artisan route:clear",
-            "@php artisan twig:clean",
-            "@php artisan view:clear",
-            "@php artisan clear-compiled",
-            "@php artisan cache:clear",
-            "@php artisan firefly-iii:upgrade-database",
-            "@php artisan firefly-iii:laravel-passport-keys",
-            "@php artisan firefly-iii:instructions update"
+            "@php scripts/composer/run-artisan.php config:clear",
+            "@php scripts/composer/run-artisan.php route:clear",
+            "@php scripts/composer/run-artisan.php twig:clean",
+            "@php scripts/composer/run-artisan.php view:clear",
+            "@php scripts/composer/run-artisan.php clear-compiled",
+            "@php scripts/composer/run-artisan.php cache:clear",
+            "@php scripts/composer/run-artisan.php firefly-iii:upgrade-database",
+            "@php scripts/composer/run-artisan.php firefly-iii:laravel-passport-keys",
+            "@php scripts/composer/run-artisan.php firefly-iii:instructions update"
         ],
         "post-install-cmd": [
-            "@php artisan firefly-iii:instructions install",
-            "@php artisan firefly-iii:verify-security-alerts"
+            "@php scripts/composer/run-artisan.php firefly-iii:instructions install",
+            "@php scripts/composer/run-artisan.php firefly-iii:verify-security-alerts"
         ],
         "unit-test": [
             "@php vendor/bin/phpunit -c phpunit.xml --testsuite unit --no-coverage"

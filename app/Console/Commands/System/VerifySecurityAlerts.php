@@ -27,6 +27,7 @@ namespace FireflyIII\Console\Commands\System;
 use FireflyIII\Console\Commands\ShowsFriendlyMessages;
 use Illuminate\Console\Command;
 use Illuminate\Database\QueryException;
+use Illuminate\Encryption\MissingAppKeyException;
 use Illuminate\Support\Facades\Storage;
 use League\Flysystem\FilesystemException;
 
@@ -47,6 +48,17 @@ class VerifySecurityAlerts extends Command
      */
     public function handle(): int
     {
+        try {
+            return $this->handleWithConfiguredAppKey();
+        } catch (MissingAppKeyException) {
+            $this->warn('Skipping security alert verification because APP_KEY is not configured.');
+
+            return self::SUCCESS;
+        }
+    }
+
+    private function handleWithConfiguredAppKey(): int
+    {
         $this->removeOldAdvisory();
 
         // check for security advisories.
@@ -56,7 +68,7 @@ class VerifySecurityAlerts extends Command
         if (!$disk->has('alerts.json')) { // @phpstan-ignore-line
             app('log')->debug('No alerts.json file present.');
 
-            return 0;
+            return self::SUCCESS;
         }
         $content = $disk->get('alerts.json');
         $json    = json_decode((string) $content, true, 10);
@@ -73,7 +85,7 @@ class VerifySecurityAlerts extends Command
                     app('log')->debug('INFO level alert');
                     $this->friendlyInfo($array['message']);
 
-                    return 0;
+                    return self::SUCCESS;
                 }
                 if ('warning' === $array['level']) {
                     app('log')->debug('WARNING level alert');
@@ -81,7 +93,7 @@ class VerifySecurityAlerts extends Command
                     $this->friendlyWarning($array['message']);
                     $this->friendlyWarning('------------------------ :o');
 
-                    return 0;
+                    return self::SUCCESS;
                 }
                 if ('danger' === $array['level']) {
                     app('log')->debug('DANGER level alert');
@@ -89,16 +101,16 @@ class VerifySecurityAlerts extends Command
                     $this->friendlyError($array['message']);
                     $this->friendlyError('------------------------ :-(');
 
-                    return 0;
+                    return self::SUCCESS;
                 }
 
-                return 0;
+                return self::SUCCESS;
             }
         }
         app('log')->debug(sprintf('No security alerts for version %s', $version));
         $this->friendlyPositive(sprintf('No security alerts for version %s', $version));
 
-        return 0;
+        return self::SUCCESS;
     }
 
     private function removeOldAdvisory(): void
