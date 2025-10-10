@@ -6,6 +6,7 @@ namespace FireflyIII\Listeners;
 
 use FireflyIII\Models\GroupMembership;
 use FireflyIII\Support\Cache\UserScopedCache;
+use FireflyIII\User;
 
 class UserGroupMembershipChanged
 {
@@ -33,6 +34,34 @@ class UserGroupMembershipChanged
             return;
         }
 
-        UserScopedCache::flush((string) $userId, null === $groupId ? null : (string) $groupId);
+        $userIdString = (string) $userId;
+
+        // Always flush the default scope.
+        UserScopedCache::flush($userIdString, null);
+
+        if (null !== $groupId) {
+            UserScopedCache::flush($userIdString, (string) $groupId);
+        }
+
+        $user = User::find($userId);
+        if (null === $user) {
+            return;
+        }
+
+        $groupIds = $user
+            ->groupMemberships()
+            ->pluck('user_group_id')
+            ->filter(static fn ($membershipGroupId): bool => null !== $membershipGroupId)
+            ->map(static fn ($membershipGroupId): string => (string) $membershipGroupId);
+
+        if (null !== $user->user_group_id) {
+            $groupIds->push((string) $user->user_group_id);
+        }
+
+        $groupIds
+            ->unique()
+            ->each(static function (string $membershipGroupId) use ($userIdString): void {
+                UserScopedCache::flush($userIdString, $membershipGroupId);
+            });
     }
 }
