@@ -10,9 +10,11 @@ from __future__ import annotations
 
 import itertools
 from dataclasses import dataclass
-from typing import Iterable, Tuple, Dict
+from typing import Any, Dict, Iterable, Mapping, Tuple
 
 import pandas as pd
+
+from fe.strategies.runtime import RuntimeStrategy, ensure_dataframe, latest_row
 
 
 @dataclass(frozen=True)
@@ -136,10 +138,81 @@ def tune_parameters(
     return best_params, best_metrics
 
 
+class Strategy(RuntimeStrategy):
+    """Adapter that turns the quoting research helpers into a runtime strategy."""
+
+    def __init__(
+        self,
+        *,
+        spread: float,
+        liq_weight: float,
+        skew_weight: float,
+        slippage: float = 0.01,
+    ) -> None:
+        super().__init__()
+        self.spread = float(spread)
+        self.liq_weight = float(liq_weight)
+        self.skew_weight = float(skew_weight)
+        self.slippage = float(slippage)
+
+    # Research compatibility --------------------------------------------------
+    def make_quote(self, yes: float, no: float, liquidity: float, skew: float) -> Quote:
+        return make_quote(
+            yes,
+            no,
+            liquidity,
+            skew,
+            spread=self.spread,
+            liq_weight=self.liq_weight,
+            skew_weight=self.skew_weight,
+        )
+
+    def backtest(self, df: pd.DataFrame) -> pd.DataFrame:
+        return run_backtest(
+            df,
+            spread=self.spread,
+            liq_weight=self.liq_weight,
+            skew_weight=self.skew_weight,
+            slippage=self.slippage,
+        )
+
+    # Runtime interface -------------------------------------------------------
+    def propose_orders(self, market_state: Any) -> Dict[str, Any]:
+        df = ensure_dataframe(
+            market_state, columns=["yes", "no", "liquidity", "skew"]
+        )
+        latest = latest_row(df)
+        quote = self.make_quote(
+            float(latest["yes"]),
+            float(latest["no"]),
+            float(latest["liquidity"]),
+            float(latest["skew"]),
+        )
+
+        quote_dict = {"bid": float(quote.bid), "ask": float(quote.ask)}
+        orders = [
+            {"side": "bid", "price": quote_dict["bid"], "size": 1.0},
+            {"side": "ask", "price": quote_dict["ask"], "size": 1.0},
+        ]
+        return {"quote": quote_dict, "orders": orders}
+
+    def on_fill(self, fill: Mapping[str, Any]) -> Mapping[str, Any]:
+        return super().on_fill(fill)
+
+    def risk_profile(self) -> Dict[str, float]:
+        return {
+            "max_spread": self.spread,
+            "slippage": self.slippage,
+            "liquidity_weight": self.liq_weight,
+            "skew_weight": self.skew_weight,
+        }
+
+
 __all__ = [
     "Quote",
     "make_quote",
     "run_backtest",
     "performance_metrics",
     "tune_parameters",
+    "Strategy",
 ]

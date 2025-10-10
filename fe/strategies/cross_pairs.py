@@ -6,10 +6,12 @@ pairs trading strategies that exploit correlations across related markets.
 
 from __future__ import annotations
 
-from typing import Sequence, Tuple
+from typing import Any, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
+
+from fe.strategies.runtime import RuntimeStrategy, ensure_dataframe
 
 Pair = Tuple[str, str]
 
@@ -155,9 +157,61 @@ def shuffled_label_significance(
     return actual, shuffled_arr, p_value
 
 
+class Strategy(RuntimeStrategy):
+    """Adapter exposing the cross-pairs research helpers as a runtime strategy."""
+
+    def __init__(
+        self,
+        pairs: Sequence[Pair],
+        *,
+        lookback: int = 20,
+        threshold: float = 1.0,
+    ) -> None:
+        super().__init__()
+        self.pairs = [tuple(pair) for pair in pairs]
+        self.lookback = int(lookback)
+        self.threshold = float(threshold)
+
+    # Research compatibility --------------------------------------------------
+    def compute_signals(self, prices: pd.DataFrame) -> pd.DataFrame:
+        return compute_signals(prices, self.pairs, self.lookback, self.threshold)
+
+    def backtest(self, prices: pd.DataFrame) -> pd.Series:
+        return vectorized_backtest(prices, self.pairs, self.lookback, self.threshold)
+
+    # Runtime interface -------------------------------------------------------
+    def propose_orders(self, market_state: Any) -> dict[str, Any]:
+        prices = ensure_dataframe(market_state)
+        signals = self.compute_signals(prices)
+        latest = signals.iloc[-1]
+
+        orders = []
+        for pair_name, signal in latest.items():
+            if not np.isfinite(signal) or signal == 0:
+                continue
+            side = "long_first" if signal > 0 else "short_first"
+            orders.append(
+                {
+                    "pair": pair_name,
+                    "signal": float(signal),
+                    "side": side,
+                }
+            )
+
+        return {"orders": orders, "signals": signals}
+
+    def risk_profile(self) -> dict[str, float]:
+        return {
+            "pairs": float(len(self.pairs)),
+            "lookback": float(self.lookback),
+            "threshold": float(self.threshold),
+        }
+
+
 __all__ = [
     "compute_signals",
     "vectorized_backtest",
     "grid_search",
     "shuffled_label_significance",
+    "Strategy",
 ]

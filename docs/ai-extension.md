@@ -20,6 +20,23 @@ Uses a Monte Carlo simulation service to estimate goal growth and returns a JSON
 ### Strategy Signals
 Validates trading signals (`asset`, `action`, `confidence`) and relays them via the broker SDK to external trading platforms.
 
+#### Runtime adapters
+
+Research code for trading ideas lives under `fe/strategies/` and typically
+exposes convenience functions for feature engineering, signal generation and
+backtesting.  When a strategy is ready for production the `fe.export.build`
+utility packages a lightweight wheel named `polymarket_alpha`.  Each exported
+module now ships a `Strategy` subclass that implements the runtime ABC exposed
+by the wheel (`propose_orders`, `on_fill`, and `risk_profile`).  These adapter
+classes delegate all analytics to the original research functions so notebooks
+continue to operate unchanged while production systems receive a stable,
+object-oriented interface.
+
+The wheel also includes `polymarket_alpha.strategies.runtime`, a helper module
+that mirrors the runtime base class when the wheel is not installed.  This
+keeps the research environment self-contained while making the mapping between
+research modules and deployable strategies explicit.
+
 ### Debt Simulation
 Runs heuristic strategies to generate ranked payoff plans for outstanding debts. The simulator currently includes:
 
