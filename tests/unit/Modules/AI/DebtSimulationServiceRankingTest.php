@@ -88,6 +88,10 @@ final class DebtSimulationServiceRankingTest extends TestCase
             self::assertIsArray($plan['meta']['tradeoff_drivers']);
             self::assertArrayHasKey('currency', $plan['meta']['tradeoff_drivers']);
             self::assertArrayHasKey('time_months', $plan['meta']['tradeoff_drivers']);
+            self::assertArrayHasKey('value', $plan['meta']['tradeoff_drivers']['currency']);
+            self::assertArrayHasKey('display_name', $plan['meta']['tradeoff_drivers']['currency']);
+            self::assertArrayHasKey('value', $plan['meta']['tradeoff_drivers']['time_months']);
+            self::assertArrayHasKey('display_name', $plan['meta']['tradeoff_drivers']['time_months']);
         }
     }
 
@@ -174,6 +178,10 @@ final class DebtSimulationServiceRankingTest extends TestCase
             self::assertIsArray($plan['meta']['tradeoff_drivers']);
             self::assertArrayHasKey('currency', $plan['meta']['tradeoff_drivers']);
             self::assertArrayHasKey('time_months', $plan['meta']['tradeoff_drivers']);
+            self::assertArrayHasKey('value', $plan['meta']['tradeoff_drivers']['currency']);
+            self::assertArrayHasKey('display_name', $plan['meta']['tradeoff_drivers']['currency']);
+            self::assertArrayHasKey('value', $plan['meta']['tradeoff_drivers']['time_months']);
+            self::assertArrayHasKey('display_name', $plan['meta']['tradeoff_drivers']['time_months']);
         }
 
         config(['ai.ranking_heuristic' => DebtSimulationService::RANKING_HEURISTIC]);
@@ -263,22 +271,26 @@ final class StubDebtSimulationService extends DebtSimulationService
     {
         if ($strategy instanceof StubLowInterestStrategy) {
             return [
+                'accounts'          => [],
                 'schedule'          => [],
                 'total_interest'    => 100.0,
                 'months'            => 24,
                 'monthly_cash_flow' => [],
                 'recommendations'   => [],
+                'legacy_recommendations' => [],
                 'status'            => 'ok',
             ];
         }
 
         if ($strategy instanceof StubFastPayoffStrategy) {
             return [
+                'accounts'          => [],
                 'schedule'          => [],
                 'total_interest'    => 140.0,
                 'months'            => 18,
                 'monthly_cash_flow' => [],
                 'recommendations'   => [],
+                'legacy_recommendations' => [],
                 'status'            => 'ok',
             ];
         }

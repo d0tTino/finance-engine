@@ -65,22 +65,67 @@ Simulation results are cached per user to speed up repeated requests. The cache 
       "is_optimal": true,
       "plan": {
         "strategy": "avalanche",
+        "accounts": [
+          {"account_id": "af13c6c4-1d05-4d26-8b16-ef3d988c1f02", "display_name": "Loan 1"},
+          {"account_id": "b2a1a148-9b91-455c-8964-fba303b3f7ca", "display_name": "Loan 2"}
+        ],
         "schedule": [
           {
             "month": 1,
-            "payments": {"10": 500, "11": 0},
-            "balances": {"10": 4000, "11": 1200},
-
+            "payments": {
+              "af13c6c4-1d05-4d26-8b16-ef3d988c1f02": {
+                "account_id": "af13c6c4-1d05-4d26-8b16-ef3d988c1f02",
+                "display_name": "Loan 1",
+                "amount": 500
+              },
+              "b2a1a148-9b91-455c-8964-fba303b3f7ca": {
+                "account_id": "b2a1a148-9b91-455c-8964-fba303b3f7ca",
+                "display_name": "Loan 2",
+                "amount": 0
+              }
+            },
+            "balances": {
+              "af13c6c4-1d05-4d26-8b16-ef3d988c1f02": {
+                "account_id": "af13c6c4-1d05-4d26-8b16-ef3d988c1f02",
+                "display_name": "Loan 1",
+                "balance": 4000
+              },
+              "b2a1a148-9b91-455c-8964-fba303b3f7ca": {
+                "account_id": "b2a1a148-9b91-455c-8964-fba303b3f7ca",
+                "display_name": "Loan 2",
+                "balance": 1200
+              }
+            },
+            "payments_legacy": {"Loan 1": 500, "Loan 2": 0},
+            "balances_legacy": {"Loan 1": 4000, "Loan 2": 1200},
             "interest": 60,
             "payment": 500,
             "cash_flow": 500,
             "unused_budget": 0
           }
-
         ],
-        "recommendations": [
-          "Consider refinancing Loan1 to lower the 10.00% APR."
-        ]
+        "legacy_schedule": [
+          {
+            "month": 1,
+            "payments": {"Loan 1": 500, "Loan 2": 0},
+            "balances": {"Loan 1": 4000, "Loan 2": 1200},
+            "interest": 60,
+            "payment": 500,
+            "cash_flow": 500,
+            "unused_budget": 0
+          }
+        ],
+        "recommendations": {
+          "af13c6c4-1d05-4d26-8b16-ef3d988c1f02": {
+            "account_id": "af13c6c4-1d05-4d26-8b16-ef3d988c1f02",
+            "display_name": "Loan 1",
+            "message": "Consider refinancing Loan 1 to lower the 10.00% APR."
+          }
+        },
+        "legacy_recommendations": [
+          "Consider refinancing Loan 1 to lower the 10.00% APR."
+        ],
+        "status": "ok"
       },
       "metrics": {
         "interest_saved": 0,
@@ -96,7 +141,27 @@ Simulation results are cached per user to speed up repeated requests. The cache 
       },
       "meta": {
         "ranking_heuristic": "interest_then_months",
-        "strategy_explanation": "Pays extra toward the debt with the highest interest rate first."
+        "strategy_explanation": "Pays extra toward the debt with the highest interest rate first.",
+        "tradeoff_drivers": {
+          "currency": {
+            "account_id": null,
+            "display_name": "Interest delta",
+            "value": 0
+          },
+          "time_months": {
+            "account_id": null,
+            "display_name": "Time delta (months)",
+            "value": 0
+          }
+        },
+        "legacy_tradeoff_drivers": {
+          "currency": 0,
+          "time_months": 0
+        },
+        "accounts": [
+          {"account_id": "af13c6c4-1d05-4d26-8b16-ef3d988c1f02", "display_name": "Loan 1"},
+          {"account_id": "b2a1a148-9b91-455c-8964-fba303b3f7ca", "display_name": "Loan 2"}
+        ]
       }
     },
     {
@@ -104,21 +169,65 @@ Simulation results are cached per user to speed up repeated requests. The cache 
       "is_optimal": false,
       "plan": {
         "strategy": "snowball",
+        "accounts": [
+          {"account_id": "af13c6c4-1d05-4d26-8b16-ef3d988c1f02", "display_name": "Loan 1"},
+          {"account_id": "b2a1a148-9b91-455c-8964-fba303b3f7ca", "display_name": "Loan 2"}
+        ],
         "schedule": [
           {
             "month": 1,
-            "payments": {"10": 475, "11": 25},
-            "balances": {"10": 4025, "11": 1175},
-
+            "payments": {
+              "af13c6c4-1d05-4d26-8b16-ef3d988c1f02": {
+                "account_id": "af13c6c4-1d05-4d26-8b16-ef3d988c1f02",
+                "display_name": "Loan 1",
+                "amount": 475
+              },
+              "b2a1a148-9b91-455c-8964-fba303b3f7ca": {
+                "account_id": "b2a1a148-9b91-455c-8964-fba303b3f7ca",
+                "display_name": "Loan 2",
+                "amount": 25
+              }
+            },
+            "balances": {
+              "af13c6c4-1d05-4d26-8b16-ef3d988c1f02": {
+                "account_id": "af13c6c4-1d05-4d26-8b16-ef3d988c1f02",
+                "display_name": "Loan 1",
+                "balance": 4025
+              },
+              "b2a1a148-9b91-455c-8964-fba303b3f7ca": {
+                "account_id": "b2a1a148-9b91-455c-8964-fba303b3f7ca",
+                "display_name": "Loan 2",
+                "balance": 1175
+              }
+            },
+            "payments_legacy": {"Loan 1": 475, "Loan 2": 25},
+            "balances_legacy": {"Loan 1": 4025, "Loan 2": 1175},
             "interest": 57.19,
             "payment": 500,
             "cash_flow": 500,
             "unused_budget": 0
           }
-
         ],
-        "recommendations": [
-          "Consider refinancing Loan1 to lower the 10.00% APR."
+        "legacy_schedule": [
+          {
+            "month": 1,
+            "payments": {"Loan 1": 475, "Loan 2": 25},
+            "balances": {"Loan 1": 4025, "Loan 2": 1175},
+            "interest": 57.19,
+            "payment": 500,
+            "cash_flow": 500,
+            "unused_budget": 0
+          }
+        ],
+        "recommendations": {
+          "af13c6c4-1d05-4d26-8b16-ef3d988c1f02": {
+            "account_id": "af13c6c4-1d05-4d26-8b16-ef3d988c1f02",
+            "display_name": "Loan 1",
+            "message": "Consider refinancing Loan 1 to lower the 10.00% APR."
+          }
+        },
+        "legacy_recommendations": [
+          "Consider refinancing Loan 1 to lower the 10.00% APR."
         ]
       },
       "metrics": {
@@ -135,7 +244,27 @@ Simulation results are cached per user to speed up repeated requests. The cache 
       },
       "meta": {
         "ranking_heuristic": "interest_then_months",
-        "strategy_explanation": "Pays extra toward the debt with the smallest balance first to build momentum."
+        "strategy_explanation": "Pays extra toward the debt with the smallest balance first to build momentum.",
+        "tradeoff_drivers": {
+          "currency": {
+            "account_id": null,
+            "display_name": "Interest delta",
+            "value": 61.88
+          },
+          "time_months": {
+            "account_id": null,
+            "display_name": "Time delta (months)",
+            "value": 2
+          }
+        },
+        "legacy_tradeoff_drivers": {
+          "currency": 61.88,
+          "time_months": 2
+        },
+        "accounts": [
+          {"account_id": "af13c6c4-1d05-4d26-8b16-ef3d988c1f02", "display_name": "Loan 1"},
+          {"account_id": "b2a1a148-9b91-455c-8964-fba303b3f7ca", "display_name": "Loan 2"}
+        ]
       }
     }
   ]
@@ -151,8 +280,11 @@ Simulation results are cached per user to speed up repeated requests. The cache 
   - `is_optimal` – Indicates whether the plan is the top-ranked option.
   - `plan` – Detailed strategy output:
     - `strategy` – Name of the heuristic applied (`avalanche`, `snowball`, `balanced`, or `ml`).
-    - `schedule` – Monthly breakdown of payments, balances, interest and cash flow.
-    - `recommendations` – Array of refinance suggestions derived from the input debts.
+    - `accounts` – Metadata for each simulated account, exposing both the `account_id` (UUID) and the `display_name` used in the human-readable output.
+    - `schedule` – Monthly breakdown keyed by account UUID. Each entry contains both structured `payments`/`balances` objects and `payments_legacy`/`balances_legacy` maps for backward compatibility.
+    - `legacy_schedule` – A historical view of the schedule using the previous name-keyed representation.
+    - `recommendations` – Associative array keyed by account UUID that includes the refinance message and the display name.
+    - `legacy_recommendations` – Array of refinance suggestions in the legacy string-only format.
   - `metrics` – Aggregated plan results:
     - `interest_saved` – Interest saved compared to the optimal plan (negative values indicate extra interest).
     - `time_to_payoff_months` – Number of months to clear all debts.
@@ -166,6 +298,9 @@ Simulation results are cached per user to speed up repeated requests. The cache 
     - `ranking_heuristic` – Ranking algorithm applied to the plans.
     - `ranking_reason` – Explanation of why the plan received its rank.
     - `tradeoffs` – Summary of lost interest savings and extra time versus the optimal plan.
+    - `tradeoff_drivers` – Structured representation of the cost-of-deviation values, including descriptive labels and optional `account_id` references.
+    - `legacy_tradeoff_drivers` – Flat representation matching the previous response contract.
+    - `accounts` – Plan-level account metadata mirrored from the schedule to simplify client access.
 
 ## Heuristics
 

@@ -105,14 +105,14 @@ final class DebtSimulationApiTest extends IntegrationTestCase
                 [
                     'rank',
                     'is_optimal',
-                    'plan'    => ['strategy', 'schedule', 'status'],
+                    'plan'    => ['strategy', 'accounts', 'schedule', 'legacy_schedule', 'recommendations', 'legacy_recommendations', 'status'],
                     'metrics' => [
                         'interest_saved',
                         'time_to_payoff_months',
                         'total_interest_paid',
                         'monthly_cash_flow',
                     ],
-                    'meta' => ['ranking_heuristic', 'tradeoffs', 'ranking_reason', 'strategy_explanation'],
+                    'meta' => ['ranking_heuristic', 'tradeoffs', 'ranking_reason', 'strategy_explanation', 'tradeoff_drivers', 'legacy_tradeoff_drivers', 'accounts'],
                 ],
             ],
         ]);
@@ -123,6 +123,17 @@ final class DebtSimulationApiTest extends IntegrationTestCase
         foreach ($actions as $action) {
             self::assertArrayHasKey('status', $action['plan']);
             self::assertIsString($action['plan']['status']);
+            self::assertIsArray($action['plan']['accounts']);
+            $firstSchedule = $action['plan']['schedule'][0];
+            self::assertArrayHasKey('payments', $firstSchedule);
+            self::assertArrayHasKey('balances', $firstSchedule);
+            self::assertArrayHasKey('payments_legacy', $firstSchedule);
+            self::assertArrayHasKey('balances_legacy', $firstSchedule);
+            $legacySchedule = $action['plan']['legacy_schedule'][0];
+            self::assertIsArray($legacySchedule['payments']);
+            self::assertIsArray($legacySchedule['balances']);
+            self::assertArrayHasKey('recommendations', $action['plan']);
+            self::assertArrayHasKey('legacy_recommendations', $action['plan']);
             if ((bool) $action['is_optimal']) {
                 self::assertArrayNotHasKey('cost_of_deviation', $action);
             } else {
@@ -134,6 +145,8 @@ final class DebtSimulationApiTest extends IntegrationTestCase
             self::assertIsString($action['meta']['tradeoffs']);
             self::assertArrayHasKey('strategy_explanation', $action['meta']);
             self::assertIsString($action['meta']['strategy_explanation']);
+            self::assertArrayHasKey('tradeoff_drivers', $action['meta']);
+            self::assertArrayHasKey('legacy_tradeoff_drivers', $action['meta']);
         }
         self::assertArrayHasKey('ranking_heuristic', $response1->json('proposed_actions.0.meta'));
         self::assertArrayHasKey('tradeoffs', $response1->json('proposed_actions.0.meta'));
