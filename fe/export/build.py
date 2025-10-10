@@ -63,8 +63,13 @@ class Strategy(ABC):
 """
         )
 
-        # Copy selected strategies
+        # Copy runtime helpers and selected strategy adapters.
         src_strategies = repo_root / "fe" / "strategies"
+        runtime_helper = src_strategies / "runtime.py"
+        if not runtime_helper.exists():
+            raise FileNotFoundError("Runtime strategy helpers not found")
+        shutil.copy(runtime_helper, pkg_dir / "strategies" / runtime_helper.name)
+
         for name in strategies:
             src = src_strategies / f"{name}.py"
             if not src.exists():

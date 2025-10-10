@@ -9,13 +9,14 @@ producing performance reports.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, Sequence
+from typing import Any, Dict, Iterable, Mapping, Sequence
 import itertools
 
 import numpy as np
 import pandas as pd
 
 from fe.features.rule_objectivity import batch_score
+from fe.strategies.runtime import RuntimeStrategy, ensure_dataframe, latest_row
 
 # Map textual objectivity scores to numerical alpha values.
 _OBJECTIVITY_ALPHA = {"clear": 1.0, "unknown": 0.0, "ambiguous": -1.0}
@@ -134,10 +135,58 @@ def walk_forward(
     return pd.DataFrame(results)
 
 
+class Strategy(RuntimeStrategy):
+    """Adapter that satisfies the runtime Strategy ABC."""
+
+    def __init__(self, *, threshold: float, slippage: float = 0.001) -> None:
+        super().__init__()
+        self.threshold = float(threshold)
+        self.slippage_model = SlippageModel(rate=float(slippage))
+
+    # Research compatibility --------------------------------------------------
+    def simulate(self, df: pd.DataFrame) -> pd.Series:
+        return simulate(df, self.threshold, self.slippage_model)
+
+    def performance_report(self, returns: pd.Series) -> Dict[str, float]:
+        return performance_report(returns)
+
+    def backtest(self, df: pd.DataFrame) -> Dict[str, float]:
+        returns = self.simulate(df)
+        return self.performance_report(returns)
+
+    # Runtime interface -------------------------------------------------------
+    def propose_orders(self, market_state: Any) -> Dict[str, Any]:
+        df = ensure_dataframe(market_state, columns=["price", "rule"])
+        latest = latest_row(df)
+        score = float(_score_rules([latest["rule"]])[0])
+        side = 1 if score >= self.threshold else -1
+        executed_price = self.slippage_model.apply(float(latest["price"]), side)
+
+        orders = [
+            {
+                "side": "buy" if side > 0 else "sell",
+                "price": executed_price,
+                "size": 1.0,
+                "alpha": score,
+            }
+        ]
+        return {"orders": orders, "alpha": score}
+
+    def on_fill(self, fill: Mapping[str, Any]) -> Mapping[str, Any]:
+        return super().on_fill(fill)
+
+    def risk_profile(self) -> Dict[str, float]:
+        return {
+            "threshold": self.threshold,
+            "slippage": self.slippage_model.rate,
+        }
+
+
 __all__ = [
     "SlippageModel",
     "simulate",
     "performance_report",
     "grid_search",
     "walk_forward",
+    "Strategy",
 ]

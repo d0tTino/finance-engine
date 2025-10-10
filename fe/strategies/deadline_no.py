@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict
+from typing import Any, Dict, Mapping
 
 import numpy as np
 import pandas as pd
+
+from fe.strategies.runtime import RuntimeStrategy, ensure_dataframe, latest_row
 
 
 @dataclass
@@ -80,4 +82,71 @@ class DeadlineNoStrategy:
             "hit_rate": hit_rate,
             "turnover": turnover,
             "shuffled_pvalue": float(pvalue),
+        }
+
+
+class Strategy(RuntimeStrategy):
+    """Runtime adapter that exposes the research strategy via the wheel API."""
+
+    def __init__(
+        self,
+        entry_days: float,
+        exit_days: float = 0.0,
+        *,
+        price_column: str = "no_price",
+    ) -> None:
+        super().__init__()
+        self._strategy = DeadlineNoStrategy(entry_days=entry_days, exit_days=exit_days)
+        self._price_column = price_column
+
+    # -- Convenience wrappers -------------------------------------------------
+    def generate_signals(self, df: pd.DataFrame) -> pd.Series:
+        """Delegate to the research implementation for compatibility."""
+
+        return self._strategy.generate_signals(df)
+
+    def backtest(
+        self,
+        df: pd.DataFrame,
+        price_col: str = "no_price",
+        n_shuffle: int = 100,
+        seed: int | None = None,
+    ) -> Dict[str, float]:
+        return self._strategy.backtest(
+            df, price_col=price_col, n_shuffle=n_shuffle, seed=seed
+        )
+
+    # -- Runtime API ----------------------------------------------------------
+    def propose_orders(self, market_state: Any) -> Dict[str, Any]:
+        df = ensure_dataframe(market_state, columns=["time_to_deadline"])
+        signals = self.generate_signals(df)
+        latest_signal = int(signals.iloc[-1])
+        latest_state = latest_row(df)
+
+        orders: list[Dict[str, Any]] = []
+        if latest_signal:
+            price = (
+                float(latest_state[self._price_column])
+                if self._price_column in latest_state
+                else None
+            )
+            orders.append(
+                {
+                    "contract": "no",
+                    "side": "buy",
+                    "size": latest_signal,
+                    "price": price,
+                }
+            )
+
+        return {"signals": signals, "orders": orders}
+
+    def on_fill(self, fill: Mapping[str, Any]) -> Mapping[str, Any]:
+        return super().on_fill(fill)
+
+    def risk_profile(self) -> Mapping[str, float]:
+        return {
+            "max_position": 1.0,
+            "entry_days": float(self._strategy.entry_days),
+            "exit_days": float(self._strategy.exit_days),
         }
