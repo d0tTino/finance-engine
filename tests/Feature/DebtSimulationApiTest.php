@@ -10,8 +10,8 @@ use FireflyIII\Models\Account;
 use FireflyIII\Models\AccountType;
 use FireflyIII\User;
 use Illuminate\Support\Facades\Cache;
-use FireflyIII\Http\Middleware\Authenticate;
 use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
+use Laravel\Sanctum\Sanctum;
 use FireflyIII\Http\Middleware\OpaMiddleware;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Schema;
@@ -22,14 +22,18 @@ use function Safe\putenv;
 
 final class DebtSimulationApiTest extends IntegrationTestCase
 {
+    public function testUnauthenticatedRequestsAreRejected(): void
+    {
+        $this->postJson('/api/v1/simulations/debt', [])->assertUnauthorized();
+    }
+
     public function testUserIsolationAndCaching(): void
     {
         Cache::setDefaultDriver('file');
         putenv('CACHE_DRIVER=file');
         Cache::flush();
-        $this->withoutMiddleware([Authenticate::class, 'auth:api', 'auth:api,sanctum', EnsureFrontendRequestsAreStateful::class, OpaMiddleware::class]);
-        config(['auth.defaults.guard' => 'web']);
-
+        config(['auth.guards.api' => ['driver' => 'token', 'provider' => 'users']]);
+        $this->withoutMiddleware([EnsureFrontendRequestsAreStateful::class, OpaMiddleware::class]);
         $budget     = 50.0;
         $maxOptions = 2;
 
@@ -70,7 +74,7 @@ final class DebtSimulationApiTest extends IntegrationTestCase
         $account2->uuid = (string) Str::uuid();
         $account2->save();
         $account2->refresh();
-        $this->be($user1);
+        Sanctum::actingAs($user1);
 
         $accounts1 = [
             [
@@ -183,7 +187,7 @@ final class DebtSimulationApiTest extends IntegrationTestCase
         $account4->uuid = (string) Str::uuid();
         $account4->save();
         $account4->refresh();
-        $this->be($user2);
+        Sanctum::actingAs($user2);
 
         $accounts2 = [
             [
@@ -218,9 +222,8 @@ final class DebtSimulationApiTest extends IntegrationTestCase
         Cache::setDefaultDriver('file');
         putenv('CACHE_DRIVER=file');
         Cache::flush();
-        $this->withoutMiddleware([Authenticate::class, 'auth:api', 'auth:api,sanctum', EnsureFrontendRequestsAreStateful::class, OpaMiddleware::class]);
-        config(['auth.defaults.guard' => 'web']);
-
+        config(['auth.guards.api' => ['driver' => 'token', 'provider' => 'users']]);
+        $this->withoutMiddleware([EnsureFrontendRequestsAreStateful::class, OpaMiddleware::class]);
         if (!Schema::hasColumn('users', 'uuid')) {
             Schema::table('users', static function (Blueprint $table): void {
                 $table->uuid('uuid')->nullable();
@@ -258,7 +261,7 @@ final class DebtSimulationApiTest extends IntegrationTestCase
         $accountB->uuid = (string) Str::uuid();
         $accountB->save();
         $accountB->refresh();
-        $this->be($user);
+        Sanctum::actingAs($user);
 
         $payload = [
             'user_id'        => $user->uuid,
@@ -309,9 +312,8 @@ final class DebtSimulationApiTest extends IntegrationTestCase
         Cache::setDefaultDriver('file');
         putenv('CACHE_DRIVER=file');
         Cache::flush();
-        $this->withoutMiddleware([Authenticate::class, 'auth:api', 'auth:api,sanctum', EnsureFrontendRequestsAreStateful::class, OpaMiddleware::class]);
-        config(['auth.defaults.guard' => 'web']);
-
+        config(['auth.guards.api' => ['driver' => 'token', 'provider' => 'users']]);
+        $this->withoutMiddleware([EnsureFrontendRequestsAreStateful::class, OpaMiddleware::class]);
         if (!Schema::hasColumn('users', 'uuid')) {
             Schema::table('users', static function (Blueprint $table): void {
                 $table->uuid('uuid')->nullable();
@@ -339,7 +341,7 @@ final class DebtSimulationApiTest extends IntegrationTestCase
         $account->uuid = (string) Str::uuid();
         $account->save();
         $account->refresh();
-        $this->be($user);
+        Sanctum::actingAs($user);
 
         $strategies   = config('ai.debt_simulation_strategies', []);
         $strategyCount = is_countable($strategies) ? count($strategies) : 0;
@@ -399,13 +401,12 @@ final class DebtSimulationApiTest extends IntegrationTestCase
         Cache::setDefaultDriver('file');
         putenv('CACHE_DRIVER=file');
         Cache::flush();
-        $this->withoutMiddleware([Authenticate::class, 'auth:api', 'auth:api,sanctum', EnsureFrontendRequestsAreStateful::class, OpaMiddleware::class]);
-        config(['auth.defaults.guard' => 'web']);
-
+        config(['auth.guards.api' => ['driver' => 'token', 'provider' => 'users']]);
+        $this->withoutMiddleware([EnsureFrontendRequestsAreStateful::class, OpaMiddleware::class]);
         $user1 = User::create(['email' => 'user1@example.com', 'password' => 'secret']);
         CreatesGroupMemberships::createGroupMembership($user1);
         $user1->refresh();
-        $this->be($user1);
+        Sanctum::actingAs($user1);
 
         $user2 = User::create(['email' => 'user2@example.com', 'password' => 'secret']);
         CreatesGroupMemberships::createGroupMembership($user2);
@@ -445,13 +446,12 @@ final class DebtSimulationApiTest extends IntegrationTestCase
         Cache::setDefaultDriver('file');
         putenv('CACHE_DRIVER=file');
         Cache::flush();
-        $this->withoutMiddleware([Authenticate::class, 'auth:api', 'auth:api,sanctum', EnsureFrontendRequestsAreStateful::class, OpaMiddleware::class]);
-        config(['auth.defaults.guard' => 'web']);
-
+        config(['auth.guards.api' => ['driver' => 'token', 'provider' => 'users']]);
+        $this->withoutMiddleware([EnsureFrontendRequestsAreStateful::class, OpaMiddleware::class]);
         $user1 = User::create(['email' => 'user1@example.com', 'password' => 'secret']);
         CreatesGroupMemberships::createGroupMembership($user1);
         $user1->refresh();
-        $this->be($user1);
+        Sanctum::actingAs($user1);
 
         $user2 = User::create(['email' => 'user2@example.com', 'password' => 'secret']);
         CreatesGroupMemberships::createGroupMembership($user2);

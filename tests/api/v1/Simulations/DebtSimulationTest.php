@@ -6,8 +6,8 @@ namespace Tests\api\v1\Simulations;
 
 use FireflyIII\Console\Commands\Correction\CreatesGroupMemberships;
 use FireflyIII\Enums\AccountTypeEnum;
-use FireflyIII\Http\Middleware\Authenticate;
 use FireflyIII\Http\Middleware\OpaMiddleware;
+use Laravel\Sanctum\Sanctum;
 use FireflyIII\Models\Account;
 use FireflyIII\Models\AccountType;
 use FireflyIII\User;
@@ -45,8 +45,8 @@ final class DebtSimulationTest extends TestCase
         Cache::setDefaultDriver('file');
         putenv('CACHE_DRIVER=file');
         Cache::flush();
-        $this->withoutMiddleware([Authenticate::class, 'auth:api', 'auth:api,sanctum', EnsureFrontendRequestsAreStateful::class, OpaMiddleware::class]);
-        config(['auth.defaults.guard' => 'web']);
+        config(['auth.guards.api' => ['driver' => 'token', 'provider' => 'users']]);
+        $this->withoutMiddleware([EnsureFrontendRequestsAreStateful::class, OpaMiddleware::class]);
 
         $this->ensureUuidColumns();
 
@@ -58,7 +58,7 @@ final class DebtSimulationTest extends TestCase
             $user1->save();
             $user1->refresh();
         }
-        $this->be($user1);
+        Sanctum::actingAs($user1);
 
         $user2 = User::create(['email' => 'user2@example.com', 'password' => 'secret']);
         CreatesGroupMemberships::createGroupMembership($user2);
@@ -107,8 +107,8 @@ final class DebtSimulationTest extends TestCase
         Cache::setDefaultDriver('file');
         putenv('CACHE_DRIVER=file');
         Cache::flush();
-        $this->withoutMiddleware([Authenticate::class, 'auth:api', 'auth:api,sanctum', EnsureFrontendRequestsAreStateful::class, OpaMiddleware::class]);
-        config(['auth.defaults.guard' => 'web']);
+        config(['auth.guards.api' => ['driver' => 'token', 'provider' => 'users']]);
+        $this->withoutMiddleware([EnsureFrontendRequestsAreStateful::class, OpaMiddleware::class]);
 
         $this->ensureUuidColumns();
 
@@ -123,7 +123,7 @@ final class DebtSimulationTest extends TestCase
             $user->save();
             $user->refresh();
         }
-        $this->be($user);
+        Sanctum::actingAs($user);
 
         $type = AccountType::where('type', AccountTypeEnum::DEBT->value)->first();
         $a1   = Account::create([
@@ -226,8 +226,8 @@ final class DebtSimulationTest extends TestCase
         Cache::setDefaultDriver('file');
         putenv('CACHE_DRIVER=file');
         Cache::flush();
-        $this->withoutMiddleware([Authenticate::class, 'auth:api', 'auth:api,sanctum', EnsureFrontendRequestsAreStateful::class, OpaMiddleware::class]);
-        config(['auth.defaults.guard' => 'web']);
+        config(['auth.guards.api' => ['driver' => 'token', 'provider' => 'users']]);
+        $this->withoutMiddleware([EnsureFrontendRequestsAreStateful::class, OpaMiddleware::class]);
 
         $this->ensureUuidColumns();
 
@@ -239,7 +239,7 @@ final class DebtSimulationTest extends TestCase
             $user->save();
             $user->refresh();
         }
-        $this->be($user);
+        Sanctum::actingAs($user);
 
         $type = AccountType::where('type', AccountTypeEnum::DEBT->value)->first();
         $a1   = Account::create([

@@ -6,7 +6,6 @@ namespace Tests\integration\AI;
 
 use FireflyIII\Console\Commands\Correction\CreatesGroupMemberships;
 use FireflyIII\Enums\AccountTypeEnum;
-use FireflyIII\Http\Middleware\Authenticate;
 use FireflyIII\Http\Middleware\OpaMiddleware;
 use FireflyIII\Models\Account;
 use FireflyIII\Models\AccountType;
@@ -17,6 +16,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
+use Laravel\Sanctum\Sanctum;
 use Tests\integration\TestCase;
 use Override;
 
@@ -42,12 +42,9 @@ final class DebtSimulationEndpointTest extends TestCase
         Cache::setDefaultDriver('array');
         Cache::flush();
 
-        config(['auth.defaults.guard' => 'web']);
+        config(['auth.guards.api' => ['driver' => 'token', 'provider' => 'users']]);
 
         $this->withoutMiddleware([
-            Authenticate::class,
-            'auth:api',
-            'auth:api,sanctum',
             EnsureFrontendRequestsAreStateful::class,
             OpaMiddleware::class,
         ]);
@@ -65,8 +62,7 @@ final class DebtSimulationEndpointTest extends TestCase
             $this->user->refresh();
         }
 
-        $this->be($this->user);
-        auth()->setUser($this->user);
+        Sanctum::actingAs($this->user);
 
         $this->debtType = AccountType::where('type', AccountTypeEnum::DEBT->value)->firstOrFail();
     }

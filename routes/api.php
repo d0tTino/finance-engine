@@ -1008,5 +1008,9 @@ Route::get('v1/goals/{id}/projection', ProjectionController::class)
     ->name('api.v1.goals.projection');
 Route::get('v1/goals/{goal}/projection', ProjectionController::class)
     ->name('api.v1.goal-projection');
-Route::post('v1/simulations/debt', DebtController::class)
-    ->name('api.v1.simulations.debt');
+Route::middleware(['auth:api,sanctum', 'bindings'])->group(
+    static function (): void {
+        Route::post('v1/simulations/debt', DebtController::class)
+            ->name('api.v1.simulations.debt');
+    }
+);
