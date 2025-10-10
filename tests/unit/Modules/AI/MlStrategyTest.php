@@ -217,7 +217,12 @@ namespace Tests\unit\Modules\AI {
             self::assertIsArray($mlPlan['meta']['tradeoff_drivers']);
             self::assertArrayHasKey('currency', $mlPlan['meta']['tradeoff_drivers']);
             self::assertArrayHasKey('time_months', $mlPlan['meta']['tradeoff_drivers']);
+            self::assertArrayHasKey('value', $mlPlan['meta']['tradeoff_drivers']['currency']);
+            self::assertArrayHasKey('display_name', $mlPlan['meta']['tradeoff_drivers']['currency']);
+            self::assertArrayHasKey('value', $mlPlan['meta']['tradeoff_drivers']['time_months']);
+            self::assertArrayHasKey('display_name', $mlPlan['meta']['tradeoff_drivers']['time_months']);
             self::assertIsString($mlPlan['meta']['strategy_explanation']);
+            self::assertIsArray($mlPlan['accounts']);
         }
     }
 }

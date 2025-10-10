@@ -54,7 +54,12 @@ final class DebtSimulationTest extends TestCase
             self::assertArrayHasKey('cost_of_deviation', $plan);
             self::assertArrayHasKey('currency', $plan['cost_of_deviation']);
             self::assertArrayHasKey('time_months', $plan['cost_of_deviation']);
-            self::assertArrayHasKey('1', $plan['schedule'][0]['payments']);
+            $firstMonth = $plan['schedule'][0];
+            self::assertArrayHasKey('1', $firstMonth['payments']);
+            self::assertArrayHasKey('amount', $firstMonth['payments']['1']);
+            self::assertArrayHasKey('display_name', $firstMonth['payments']['1']);
+            self::assertArrayHasKey('payments_legacy', $firstMonth);
+            self::assertArrayHasKey('balances_legacy', $firstMonth);
         }
 
         $mapped = [];
@@ -181,6 +186,35 @@ final class DebtSimulationTest extends TestCase
             self::assertIsString($action['meta']['tradeoffs']);
             self::assertArrayHasKey('currency', $action['cost_of_deviation']);
             self::assertArrayHasKey('time_months', $action['cost_of_deviation']);
+        }
+    }
+
+    public function testSchedulesAreKeyedByAccountIdWithDuplicateNames(): void
+    {
+        $user    = $this->createAuthenticatedUser();
+        $service = new DebtSimulationService([
+            AvalancheStrategy::class,
+            SnowballStrategy::class,
+        ]);
+
+        $accounts = [
+            ['account_id' => 'a-1', 'name' => 'Visa', 'balance' => 500.0, 'apr' => 0.12, 'min_payment' => 25.0],
+            ['account_id' => 'a-2', 'name' => 'Visa', 'balance' => 600.0, 'apr' => 0.18, 'min_payment' => 30.0],
+        ];
+
+        $plans = $service->simulate((string) $user->id, '1', $accounts, 200.0, 2);
+
+        self::assertNotEmpty($plans);
+        foreach ($plans as $plan) {
+            $month = $plan['schedule'][0];
+            self::assertArrayHasKey('a-1', $month['payments']);
+            self::assertArrayHasKey('a-2', $month['payments']);
+            self::assertSame('Visa', $month['payments']['a-1']['display_name']);
+            self::assertSame('Visa', $month['payments']['a-2']['display_name']);
+            self::assertArrayHasKey('accounts', $plan);
+            $accountIds = array_column($plan['accounts'], 'account_id');
+            self::assertContains('a-1', $accountIds);
+            self::assertContains('a-2', $accountIds);
         }
     }
 }

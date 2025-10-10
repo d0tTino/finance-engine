@@ -33,10 +33,16 @@ final class DebtSimulationServiceMetaTest extends TestCase
             self::assertArrayHasKey('ranking_reason', $plan['meta']);
             self::assertArrayHasKey('tradeoff_drivers', $plan['meta']);
             self::assertArrayHasKey('strategy_explanation', $plan['meta']);
+            self::assertArrayHasKey('legacy_tradeoff_drivers', $plan['meta']);
+            self::assertArrayHasKey('accounts', $plan['meta']);
 
             self::assertIsArray($plan['meta']['tradeoff_drivers']);
             self::assertArrayHasKey('currency', $plan['meta']['tradeoff_drivers']);
             self::assertArrayHasKey('time_months', $plan['meta']['tradeoff_drivers']);
+            self::assertArrayHasKey('value', $plan['meta']['tradeoff_drivers']['currency']);
+            self::assertArrayHasKey('display_name', $plan['meta']['tradeoff_drivers']['currency']);
+            self::assertArrayHasKey('value', $plan['meta']['tradeoff_drivers']['time_months']);
+            self::assertArrayHasKey('display_name', $plan['meta']['tradeoff_drivers']['time_months']);
             self::assertIsString($plan['meta']['strategy_explanation']);
         }
     }

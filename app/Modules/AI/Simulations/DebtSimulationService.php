@@ -118,11 +118,16 @@ class DebtSimulationService
             function () use ($accounts, $budget, $maxOptions): array {
                 // Normalize account data for simulation service.
                 $debts = array_map(static function (array $account): array {
+                    $displayName = (string) ($account['name'] ?? $account['id'] ?? $account['account_id']);
+                    $accountId   = (string) ($account['account_id'] ?? $account['id'] ?? $displayName);
+
                     return [
-                        'name'        => (string) ($account['name'] ?? $account['id'] ?? $account['account_id']),
-                        'balance'     => (float) $account['balance'],
-                        'rate'        => (float) $account['apr'],
-                        'min_payment' => (float) ($account['min_payment'] ?? $account['minimum_payment'] ?? 0.0),
+                        'account_id'   => $accountId,
+                        'display_name' => $displayName,
+                        'name'         => $displayName,
+                        'balance'      => (float) $account['balance'],
+                        'rate'         => (float) $account['apr'],
+                        'min_payment'  => (float) ($account['min_payment'] ?? $account['minimum_payment'] ?? 0.0),
                     ];
                 }, $accounts);
 
@@ -250,14 +255,29 @@ class DebtSimulationService
                         $heuristicScores[$field] = $plan[$field] ?? null;
                     }
 
+                    $tradeoffDrivers = [
+                        'currency'    => [
+                            'account_id'   => null,
+                            'display_name' => 'Interest delta',
+                            'value'        => (float) $plan['cost_of_deviation']['currency'],
+                        ],
+                        'time_months' => [
+                            'account_id'   => null,
+                            'display_name' => 'Time delta (months)',
+                            'value'        => (int) $plan['cost_of_deviation']['time_months'],
+                        ],
+                    ];
+
                     $plan['meta'] = array_merge(
                         $plan['meta'],
                         [
-                            'ranking_heuristic' => $this->rankingHeuristic,
-                            'heuristic_scores'  => $heuristicScores,
-                            'tradeoff_drivers'  => $plan['cost_of_deviation'],
-                            'ranking_reason'    => $rankingReason,
-                            'tradeoffs'         => $tradeoffString,
+                            'ranking_heuristic'       => $this->rankingHeuristic,
+                            'heuristic_scores'        => $heuristicScores,
+                            'tradeoff_drivers'        => $tradeoffDrivers,
+                            'legacy_tradeoff_drivers' => $plan['cost_of_deviation'],
+                            'ranking_reason'          => $rankingReason,
+                            'tradeoffs'               => $tradeoffString,
+                            'accounts'                => $plan['accounts'] ?? [],
                         ]
                     );
 
@@ -293,21 +313,38 @@ class DebtSimulationService
     protected function generateSchedule(array $debts, float $monthlyBudget, StrategyInterface $strategy): array
     {
         $debts = array_map(static function (array $debt): array {
-            $debt['balance']     = (float) $debt['balance'];
-            $debt['rate']        = (float) $debt['rate'];
-            $debt['min_payment'] = (float) $debt['min_payment'];
+            $debt['balance']      = (float) $debt['balance'];
+            $debt['rate']         = (float) $debt['rate'];
+            $debt['min_payment']  = (float) $debt['min_payment'];
+            $debt['account_id']   = (string) $debt['account_id'];
+            $debt['display_name'] = (string) ($debt['display_name'] ?? $debt['name']);
 
             return $debt;
         }, $debts);
 
-        $recommendations   = [];
+        $accountsIndex      = [];
+        $recommendations    = [];
+        $legacyRecommendations = [];
         foreach ($debts as $debt) {
+            $accountsIndex[$debt['account_id']] = [
+                'account_id'   => $debt['account_id'],
+                'display_name' => $debt['display_name'],
+            ];
+
             if ($debt['rate'] >= self::HIGH_APR_THRESHOLD) {
-                $recommendations[] = sprintf(
+                $message = sprintf(
                     'Consider refinancing %s to lower the %.2f%% APR.',
-                    $debt['name'],
+                    $debt['display_name'],
                     $debt['rate'] * 100
                 );
+
+                $recommendations[$debt['account_id']] = [
+                    'account_id'   => $debt['account_id'],
+                    'display_name' => $debt['display_name'],
+                    'message'      => $message,
+                ];
+
+                $legacyRecommendations[] = $message;
             }
         }
 
@@ -342,18 +379,36 @@ class DebtSimulationService
             }
             unset($debt);
 
-            $paymentPlan     = [];
+            $paymentPlan        = [];
+            $legacyPaymentPlan  = [];
             $remainingBudget = $monthlyBudget;
 
             // Pay minimums first.
             foreach ($debts as &$debt) {
                 if ($debt['balance'] <= 0) {
-                    $paymentPlan[$debt['name']] = 0.0;
+                    $accountId   = $debt['account_id'];
+                    $displayName = $debt['display_name'];
+                    $paymentPlan[$accountId] = [
+                        'account_id'   => $accountId,
+                        'display_name' => $displayName,
+                        'amount'       => $paymentPlan[$accountId]['amount'] ?? 0.0,
+                    ];
+                    $legacyPaymentPlan[$displayName] = $legacyPaymentPlan[$displayName] ?? 0.0;
                     continue;
                 }
                 $payment                     = min($debt['min_payment'], $debt['balance']);
                 $debt['balance']            -= $payment;
-                $paymentPlan[$debt['name']]  = $payment;
+                $accountId                   = $debt['account_id'];
+                $displayName                 = $debt['display_name'];
+                if (!isset($paymentPlan[$accountId])) {
+                    $paymentPlan[$accountId] = [
+                        'account_id'   => $accountId,
+                        'display_name' => $displayName,
+                        'amount'       => 0.0,
+                    ];
+                }
+                $paymentPlan[$accountId]['amount'] += $payment;
+                $legacyPaymentPlan[$displayName]     = ($legacyPaymentPlan[$displayName] ?? 0.0) + $payment;
                 $remainingBudget            -= $payment;
             }
             unset($debt);
@@ -368,16 +423,23 @@ class DebtSimulationService
                 }
                 $target = &$debts[$targetKey];
                 $extra  = min($remainingBudget, $target['balance']);
-                if (!isset($paymentPlan[$target['name']])) {
-                    $paymentPlan[$target['name']] = 0.0;
+                $accountId   = $target['account_id'];
+                $displayName = $target['display_name'];
+                if (!isset($paymentPlan[$accountId])) {
+                    $paymentPlan[$accountId] = [
+                        'account_id'   => $accountId,
+                        'display_name' => $displayName,
+                        'amount'       => 0.0,
+                    ];
                 }
                 $target['balance']          -= $extra;
-                $paymentPlan[$target['name']] += $extra;
+                $paymentPlan[$accountId]['amount'] += $extra;
+                $legacyPaymentPlan[$displayName]     = ($legacyPaymentPlan[$displayName] ?? 0.0) + $extra;
                 $remainingBudget            -= $extra;
                 unset($target);
             }
 
-            $totalPayment    = array_sum($paymentPlan);
+            $totalPayment    = array_sum(array_map(static fn (array $entry): float => (float) $entry['amount'], $paymentPlan));
             $unusedBudget    = max($remainingBudget, 0.0);
             $totalInterest  += $interestThisMonth;
             $cashFlowTimeline[] = [
@@ -386,11 +448,17 @@ class DebtSimulationService
                 'unused_budget' => $unusedBudget,
             ];
 
-            $balanceSnapshot = [];
-            $balanceAfter    = 0.0;
+            $balanceSnapshot       = [];
+            $legacyBalanceSnapshot = [];
+            $balanceAfter          = 0.0;
             foreach ($debts as $debt) {
                 $currentBalance                   = max($debt['balance'], 0.0);
-                $balanceSnapshot[$debt['name']]   = $currentBalance;
+                $balanceSnapshot[$debt['account_id']] = [
+                    'account_id'   => $debt['account_id'],
+                    'display_name' => $debt['display_name'],
+                    'balance'      => $currentBalance,
+                ];
+                $legacyBalanceSnapshot[$debt['display_name']] = $currentBalance;
                 $balanceAfter                    += $currentBalance;
             }
 
@@ -398,6 +466,8 @@ class DebtSimulationService
                 'month'         => $month,
                 'payments'      => $paymentPlan,
                 'balances'      => $balanceSnapshot,
+                'payments_legacy' => $legacyPaymentPlan,
+                'balances_legacy' => $legacyBalanceSnapshot,
                 'interest'      => $interestThisMonth,
                 'payment'       => $totalPayment,
                 'cash_flow'     => $totalPayment,
@@ -411,11 +481,13 @@ class DebtSimulationService
         }
 
         return [
+            'accounts'          => array_values($accountsIndex),
             'schedule'          => $schedule,
             'total_interest'    => $totalInterest,
             'months'            => $month,
             'monthly_cash_flow' => $cashFlowTimeline,
             'recommendations'   => $recommendations,
+            'legacy_recommendations' => $legacyRecommendations,
             'status'            => $nonConverging ? 'non_converging' : 'ok',
         ];
     }

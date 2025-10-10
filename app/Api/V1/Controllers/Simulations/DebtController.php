@@ -65,14 +65,49 @@ class DebtController extends Controller
         $analysisId      = (string) Str::uuid();
         $proposedActions = array_map(
             static function (array $plan): array {
+                $schedule = array_map(
+                    static function (array $entry): array {
+                        return [
+                            'month'           => $entry['month'],
+                            'payments'        => $entry['payments'],
+                            'balances'        => $entry['balances'],
+                            'payments_legacy' => $entry['payments_legacy'] ?? [],
+                            'balances_legacy' => $entry['balances_legacy'] ?? [],
+                            'interest'        => $entry['interest'],
+                            'payment'         => $entry['payment'],
+                            'cash_flow'       => $entry['cash_flow'],
+                            'unused_budget'   => $entry['unused_budget'],
+                        ];
+                    },
+                    $plan['schedule']
+                );
+
+                $legacySchedule = array_map(
+                    static function (array $entry): array {
+                        return [
+                            'month'     => $entry['month'],
+                            'payments'  => $entry['payments_legacy'] ?? [],
+                            'balances'  => $entry['balances_legacy'] ?? [],
+                            'interest'  => $entry['interest'],
+                            'payment'   => $entry['payment'],
+                            'cash_flow' => $entry['cash_flow'],
+                            'unused_budget' => $entry['unused_budget'],
+                        ];
+                    },
+                    $plan['schedule']
+                );
+
                 $result = [
                     'rank'       => $plan['rank'],
                     'is_optimal' => $plan['is_optimal'],
                     'plan'       => [
-                        'strategy' => $plan['strategy'],
-                        'schedule' => $plan['schedule'],
-                        'recommendations' => $plan['recommendations'] ?? [],
-                        'status'   => $plan['status'],
+                        'strategy'               => $plan['strategy'],
+                        'accounts'               => $plan['accounts'] ?? [],
+                        'schedule'               => $schedule,
+                        'legacy_schedule'        => $legacySchedule,
+                        'recommendations'        => $plan['recommendations'] ?? [],
+                        'legacy_recommendations' => $plan['legacy_recommendations'] ?? [],
+                        'status'                 => $plan['status'],
                     ],
                     'metrics' => [
                         'interest_saved'        => (float) $plan['interest_saved'],
@@ -90,12 +125,14 @@ class DebtController extends Controller
                 }
 
                 $result['meta'] = [
-                    'ranking_heuristic' => $plan['meta']['ranking_heuristic'],
-                    'ranking_reason'    => $plan['meta']['ranking_reason'] ?? $plan['meta']['ranking_heuristic'],
-                    'tradeoffs'         => $plan['meta']['tradeoffs'] ?? $plan['cost_of_deviation'],
-                    'tradeoff_drivers'  => $plan['meta']['tradeoff_drivers'] ?? $plan['cost_of_deviation'],
-                    'heuristic_scores'  => $plan['meta']['heuristic_scores'] ?? [],
-                    'strategy_explanation' => $plan['meta']['strategy_explanation'],
+                    'ranking_heuristic'       => $plan['meta']['ranking_heuristic'],
+                    'ranking_reason'          => $plan['meta']['ranking_reason'] ?? $plan['meta']['ranking_heuristic'],
+                    'tradeoffs'               => $plan['meta']['tradeoffs'] ?? $plan['cost_of_deviation'],
+                    'tradeoff_drivers'        => $plan['meta']['tradeoff_drivers'] ?? [],
+                    'legacy_tradeoff_drivers' => $plan['meta']['legacy_tradeoff_drivers'] ?? $plan['cost_of_deviation'],
+                    'heuristic_scores'        => $plan['meta']['heuristic_scores'] ?? [],
+                    'strategy_explanation'    => $plan['meta']['strategy_explanation'],
+                    'accounts'                => $plan['meta']['accounts'] ?? ($plan['accounts'] ?? []),
                 ];
 
                 return $result;
