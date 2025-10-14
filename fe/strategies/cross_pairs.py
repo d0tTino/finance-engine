@@ -6,7 +6,7 @@ pairs trading strategies that exploit correlations across related markets.
 
 from __future__ import annotations
 
-from typing import Any, Sequence, Tuple
+from typing import Any, Callable, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -64,21 +64,42 @@ def compute_signals(
     return signals.fillna(0.0)
 
 
+SlippageModel = Callable[[pd.DataFrame, pd.DataFrame], pd.Series]
+
+
 def vectorized_backtest(
     prices: pd.DataFrame,
     pairs: Sequence[Pair],
     lookback: int = 20,
     threshold: float = 1.0,
-) -> pd.Series:
+    slippage: float | SlippageModel = 0.0,
+) -> tuple[pd.Series, pd.Series]:
     """Run a vectorised backtest of the cross-pairs strategy.
 
     The strategy enters positions based on :func:`compute_signals` and
-    realises profit and loss from the subsequent period's returns.
+    realises profit and loss from the subsequent period's returns.  Optional
+    ``slippage`` costs are deducted whenever the position changes.
+
+    Parameters
+    ----------
+    prices:
+        DataFrame containing price series for each market.
+    pairs:
+        Sequence of market column pairs.
+    lookback:
+        Rolling window used to compute z-scores.
+    threshold:
+        Z-score magnitude required to open a position.
+    slippage:
+        Either a scalar cost applied per unit turnover or a callable returning
+        a per-period cost ``Series`` given the absolute position changes and
+        per-pair returns.
 
     Returns
     -------
-    pd.Series
-        Cumulative profit and loss over time assuming unit capital per pair.
+    tuple[pd.Series, pd.Series]
+        Tuple containing the per-period returns (first element) and cumulative
+        PnL (second element).
     """
     signals = compute_signals(prices, pairs, lookback, threshold)
 
@@ -88,8 +109,22 @@ def vectorized_backtest(
         index=prices.index,
     )
 
-    pnl = (signals * pair_returns).sum(axis=1).fillna(0.0)
-    return pnl.cumsum()
+    per_pair_pnl = (signals * pair_returns).fillna(0.0)
+    per_period = per_pair_pnl.sum(axis=1)
+
+    trades = signals.diff().abs().fillna(0.0)
+    if callable(slippage):
+        slip_cost = slippage(trades, pair_returns)
+    else:
+        slip_cost = trades.sum(axis=1) * float(slippage)
+
+    if isinstance(slip_cost, pd.Series):
+        slip_cost = slip_cost.reindex(per_period.index).fillna(0.0)
+    else:
+        slip_cost = pd.Series(slip_cost, index=per_period.index).fillna(0.0)
+    per_period = (per_period - slip_cost).fillna(0.0)
+    cumulative = per_period.cumsum()
+    return per_period, cumulative
 
 
 def grid_search(
@@ -107,8 +142,9 @@ def grid_search(
     results: dict[tuple[int, float], float] = {}
     for lb in lookbacks:
         for th in thresholds:
-            pnl = vectorized_backtest(prices, pairs, lb, th).iloc[-1]
-            results[(lb, th)] = pnl
+            _, cumulative = vectorized_backtest(prices, pairs, lb, th)
+            pnl = cumulative.iloc[-1] if not cumulative.empty else 0.0
+            results[(lb, th)] = float(pnl)
 
     df = pd.Series(results).unstack()
     df.index.name = "lookback"
@@ -121,6 +157,7 @@ def shuffled_label_significance(
     pairs: Sequence[Pair],
     lookback: int,
     threshold: float,
+    slippage: float | SlippageModel = 0.0,
     n_shuffles: int = 100,
     seed: int | None = None,
 ) -> tuple[float, np.ndarray, float]:
@@ -141,20 +178,95 @@ def shuffled_label_significance(
         Proportion of shuffled outcomes greater than or equal to ``actual``.
     """
     rng = np.random.default_rng(seed)
-    actual = vectorized_backtest(prices, pairs, lookback, threshold).iloc[-1]
+    _, actual_cumulative = vectorized_backtest(
+        prices, pairs, lookback, threshold, slippage=slippage
+    )
+    actual = float(actual_cumulative.iloc[-1]) if not actual_cumulative.empty else 0.0
 
     shuffled = []
     for _ in range(n_shuffles):
         shuffled_prices = prices.copy()
         shuffled_prices.columns = rng.permutation(shuffled_prices.columns)
-        pnl = vectorized_backtest(
-            shuffled_prices, pairs, lookback, threshold
-        ).iloc[-1]
+        _, shuffled_cumulative = vectorized_backtest(
+            shuffled_prices, pairs, lookback, threshold, slippage=slippage
+        )
+        pnl = (
+            float(shuffled_cumulative.iloc[-1])
+            if not shuffled_cumulative.empty
+            else 0.0
+        )
         shuffled.append(pnl)
 
     shuffled_arr = np.asarray(shuffled)
     p_value = (np.sum(shuffled_arr >= actual) + 1) / (n_shuffles + 1)
     return actual, shuffled_arr, p_value
+
+
+def compute_backtest_metrics(
+    prices: pd.DataFrame,
+    pairs: Sequence[Pair],
+    *,
+    lookback: int = 20,
+    threshold: float = 1.0,
+    slippage: float | SlippageModel = 0.0,
+    n_shuffles: int = 0,
+    seed: int | None = None,
+) -> dict[str, Any]:
+    """Return performance metrics for the cross-pairs strategy.
+
+    The helper wraps :func:`vectorized_backtest` and augments the resulting
+    return series with common statistics such as Sharpe ratio and drawdown.  If
+    ``n_shuffles`` is positive, a shuffled-label significance test is
+    performed to estimate a one-sided p-value.
+    """
+
+    returns, cumulative = vectorized_backtest(
+        prices, pairs, lookback, threshold, slippage=slippage
+    )
+
+    pnl = float(cumulative.iloc[-1]) if not cumulative.empty else 0.0
+
+    std = float(returns.std(ddof=0))
+    sharpe = 0.0
+    if std > 0:
+        sharpe = float(returns.mean() / std * np.sqrt(252))
+
+    if cumulative.empty:
+        max_drawdown = 0.0
+    else:
+        running_max = cumulative.cummax()
+        drawdown = cumulative - running_max
+        max_drawdown = float(drawdown.min())
+
+    non_zero = returns[returns != 0.0]
+    hit_rate = float((non_zero > 0).mean()) if not non_zero.empty else float("nan")
+
+    signals = compute_signals(prices, pairs, lookback, threshold)
+    turnover_series = signals.diff().abs().sum(axis=1).fillna(0.0)
+    turnover = float(turnover_series.mean()) if not turnover_series.empty else 0.0
+
+    p_value = float("nan")
+    if n_shuffles > 0:
+        _, _, p_value = shuffled_label_significance(
+            prices,
+            pairs,
+            lookback,
+            threshold,
+            slippage=slippage,
+            n_shuffles=n_shuffles,
+            seed=seed,
+        )
+
+    return {
+        "returns": returns,
+        "cumulative": cumulative,
+        "pnl": pnl,
+        "sharpe": float(sharpe),
+        "max_drawdown": max_drawdown,
+        "hit_rate": hit_rate,
+        "turnover": turnover,
+        "p_value": float(p_value),
+    }
 
 
 class Strategy(RuntimeStrategy):
@@ -176,8 +288,23 @@ class Strategy(RuntimeStrategy):
     def compute_signals(self, prices: pd.DataFrame) -> pd.DataFrame:
         return compute_signals(prices, self.pairs, self.lookback, self.threshold)
 
-    def backtest(self, prices: pd.DataFrame) -> pd.Series:
-        return vectorized_backtest(prices, self.pairs, self.lookback, self.threshold)
+    def backtest(
+        self,
+        prices: pd.DataFrame,
+        *,
+        slippage: float | SlippageModel = 0.0,
+        n_shuffles: int = 0,
+        seed: int | None = None,
+    ) -> dict[str, Any]:
+        return compute_backtest_metrics(
+            prices,
+            self.pairs,
+            lookback=self.lookback,
+            threshold=self.threshold,
+            slippage=slippage,
+            n_shuffles=n_shuffles,
+            seed=seed,
+        )
 
     # Runtime interface -------------------------------------------------------
     def propose_orders(self, market_state: Any) -> dict[str, Any]:
@@ -213,5 +340,6 @@ __all__ = [
     "vectorized_backtest",
     "grid_search",
     "shuffled_label_significance",
+    "compute_backtest_metrics",
     "Strategy",
 ]
