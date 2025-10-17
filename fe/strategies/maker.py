@@ -12,6 +12,7 @@ import itertools
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, Mapping, Tuple
 
+import numpy as np
 import pandas as pd
 
 from fe.strategies.runtime import RuntimeStrategy, ensure_dataframe, latest_row
@@ -95,18 +96,60 @@ def run_backtest(
 
     bid_edge = qdf["bid"] - df["yes"] - slippage
     ask_edge = df["no"] - qdf["ask"] - slippage
-    pnl = 0.5 * (bid_edge + ask_edge)
+    period_pnl = 0.5 * (bid_edge + ask_edge)
+    turnover = bid_edge.abs() + ask_edge.abs()
 
-    return pd.DataFrame({"bid_edge": bid_edge, "ask_edge": ask_edge, "pnl": pnl})
+    return pd.DataFrame(
+        {
+            "bid_edge": bid_edge,
+            "ask_edge": ask_edge,
+            "turnover": turnover,
+            "pnl": period_pnl,
+        }
+    )
 
 
-def performance_metrics(results: pd.DataFrame) -> Dict[str, float]:
-    """Compute summary metrics from backtest results."""
+def pnl_metrics(
+    pnl: pd.Series,
+    *,
+    n_shuffle: int = 0,
+    seed: int | None = None,
+    trading_periods: int = 252,
+) -> Dict[str, float]:
+    """Compute summary metrics from a per-period PnL series."""
 
-    trades = results[["bid_edge", "ask_edge"]].stack()
-    win_rate = float((trades > 0).mean())
-    mean_pnl = float(results["pnl"].mean())
-    return {"mean_pnl": mean_pnl, "win_rate": win_rate}
+    pnl = pnl.astype(float)
+    total_pnl = float(pnl.sum()) if not pnl.empty else 0.0
+    sharpe = 0.0
+    std = pnl.std(ddof=0)
+    if std > 0:
+        sharpe = float(pnl.mean() / std * np.sqrt(trading_periods))
+
+    equity = pnl.cumsum()
+    max_drawdown = 0.0
+    if not equity.empty:
+        running_max = equity.cummax()
+        max_drawdown = float((equity - running_max).min())
+
+    hit_rate = float((pnl > 0).mean()) if not pnl.empty else 0.0
+    turnover = float(pnl.abs().sum()) if not pnl.empty else 0.0
+
+    p_value = float("nan")
+    if n_shuffle > 0 and not pnl.empty:
+        rng = np.random.default_rng(seed)
+        arr = pnl.to_numpy()
+        shuffled = [rng.permutation(arr).sum() for _ in range(n_shuffle)]
+        sh_arr = np.asarray(shuffled)
+        p_value = float((np.sum(sh_arr >= total_pnl) + 1) / (n_shuffle + 1))
+
+    return {
+        "pnl": total_pnl,
+        "sharpe": float(sharpe),
+        "max_drawdown": float(max_drawdown),
+        "hit_rate": hit_rate,
+        "turnover": turnover,
+        "p_value": float(p_value),
+    }
 
 
 def tune_parameters(
@@ -127,8 +170,8 @@ def tune_parameters(
         res = run_backtest(
             df, spread=s, liq_weight=lw, skew_weight=sw, slippage=slippage
         )
-        metrics = performance_metrics(res)
-        score = metrics["mean_pnl"]
+        metrics = pnl_metrics(res["pnl"])
+        score = metrics["pnl"]
         if score > best_score:
             best_score = score
             best_params = {"spread": s, "liq_weight": lw, "skew_weight": sw}
@@ -167,14 +210,23 @@ class Strategy(RuntimeStrategy):
             skew_weight=self.skew_weight,
         )
 
-    def backtest(self, df: pd.DataFrame) -> pd.DataFrame:
-        return run_backtest(
+    def backtest(
+        self,
+        df: pd.DataFrame,
+        *,
+        price_col: str | None = None,
+        n_shuffle: int = 100,
+        seed: int | None = None,
+    ) -> Dict[str, Any]:
+        results = run_backtest(
             df,
             spread=self.spread,
             liq_weight=self.liq_weight,
             skew_weight=self.skew_weight,
             slippage=self.slippage,
         )
+        metrics = pnl_metrics(results["pnl"], n_shuffle=n_shuffle, seed=seed)
+        return {"pnl_series": results["pnl"], **metrics}
 
     # Runtime interface -------------------------------------------------------
     def propose_orders(self, market_state: Any) -> Dict[str, Any]:
