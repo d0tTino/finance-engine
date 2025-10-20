@@ -264,7 +264,7 @@ __all__ = [
     "Quote",
     "make_quote",
     "run_backtest",
-    "performance_metrics",
+    "pnl_metrics",
     "tune_parameters",
     "Strategy",
 ]
