@@ -47,11 +47,42 @@ def test_simulate_and_performance_report(sample_frame: pd.DataFrame) -> None:
     model = SlippageModel(rate=0.0)
     returns = simulate(data, threshold=0.5, slippage=model)
     assert returns.tolist() == pytest.approx([0.2, 0.05, 0.05])
+    assert returns.attrs["meta"]["positions"] == [1, -1, -1]
 
-    report = performance_report(returns)
-    assert report["trades"] == 3
-    assert report["avg_return"] == pytest.approx(0.1)
-    assert report["sharpe"] == pytest.approx(np.sqrt(2))
+    permutations = 200
+    report = performance_report(returns, permutations=permutations, seed=123)
+    expected_keys = {
+        "trades",
+        "avg_return",
+        "pnl",
+        "sharpe",
+        "max_drawdown",
+        "hit_rate",
+        "turnover",
+        "p_value",
+    }
+    assert set(report.keys()) == expected_keys
+
+    rng = np.random.default_rng(123)
+    shuffled_means = []
+    for _ in range(permutations):
+        shuffled_frame = data.assign(rule=rng.permutation(data["rule"].to_numpy()))
+        shuffled_returns = simulate(shuffled_frame, threshold=0.5, slippage=model)
+        shuffled_means.append(shuffled_returns.mean() if not shuffled_returns.empty else 0.0)
+    expected_p = (np.sum(np.array(shuffled_means) >= report["avg_return"]) + 1) / (
+        permutations + 1
+    )
+
+    assert report == {
+        "trades": 3,
+        "avg_return": pytest.approx(0.1),
+        "pnl": pytest.approx(0.3),
+        "sharpe": pytest.approx(np.sqrt(2)),
+        "max_drawdown": pytest.approx(0.0),
+        "hit_rate": pytest.approx(1.0),
+        "turnover": pytest.approx(3.0),
+        "p_value": pytest.approx(expected_p),
+    }
 
 
 def test_score_rules_and_slippage_model_behaviour() -> None:
@@ -77,7 +108,25 @@ def test_simulate_and_report_empty_inputs() -> None:
     assert returns.dtype == float
 
     report = performance_report(returns)
-    assert report == {"trades": 0, "avg_return": 0.0, "sharpe": 0.0}
+    expected_keys = {
+        "trades",
+        "avg_return",
+        "pnl",
+        "sharpe",
+        "max_drawdown",
+        "hit_rate",
+        "turnover",
+        "p_value",
+    }
+    assert set(report.keys()) == expected_keys
+    assert report["trades"] == 0
+    assert report["avg_return"] == 0.0
+    assert report["pnl"] == 0.0
+    assert report["sharpe"] == 0.0
+    assert report["max_drawdown"] == 0.0
+    assert report["hit_rate"] == 0.0
+    assert report["turnover"] == 0.0
+    assert np.isnan(report["p_value"])
 
 
 def test_grid_search_selects_expected_parameters(sample_frame: pd.DataFrame) -> None:
@@ -87,6 +136,7 @@ def test_grid_search_selects_expected_parameters(sample_frame: pd.DataFrame) -> 
     assert result["params"] == {"threshold": 0.5, "slippage": 0.0}
     assert result["report"]["trades"] == 3
     assert result["report"]["avg_return"] == pytest.approx(0.1)
+    assert result["report"]["pnl"] == pytest.approx(0.3)
 
 
 def test_walk_forward_structure_and_parameter_usage(sample_frame: pd.DataFrame) -> None:
@@ -98,11 +148,16 @@ def test_walk_forward_structure_and_parameter_usage(sample_frame: pd.DataFrame) 
         slippages=[0.0, 0.05],
     )
 
-    assert result.shape == (1, 6)
+    assert result.shape == (1, 11)
     assert list(result.columns) == [
         "trades",
         "avg_return",
+        "pnl",
         "sharpe",
+        "max_drawdown",
+        "hit_rate",
+        "turnover",
+        "p_value",
         "threshold",
         "slippage",
         "start",

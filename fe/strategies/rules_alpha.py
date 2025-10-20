@@ -67,7 +67,15 @@ def simulate(df: pd.DataFrame, threshold: float, slippage: SlippageModel) -> pd.
     """
 
     if df.empty:
-        return pd.Series(dtype=float)
+        returns = pd.Series(dtype=float)
+        returns.attrs["meta"] = {
+            "prices": [],
+            "rules": [],
+            "threshold": float(threshold),
+            "slippage": float(slippage.rate),
+            "positions": [],
+        }
+        return returns
 
     alpha = _score_rules(df["rule"].tolist())
     side = np.where(alpha >= threshold, 1, -1)
@@ -75,18 +83,95 @@ def simulate(df: pd.DataFrame, threshold: float, slippage: SlippageModel) -> pd.
     executed = np.array([slippage.apply(p, s) for p, s in zip(prices, side)])
     # Compute P&L from price changes in direction of the position.
     pnl = (np.roll(executed, -1) - executed) * side
-    return pd.Series(pnl[:-1], index=df.index[:-1])
+    returns = pd.Series(pnl[:-1], index=df.index[:-1])
+    returns.attrs["meta"] = {
+        "prices": prices.tolist(),
+        "rules": df["rule"].tolist(),
+        "threshold": float(threshold),
+        "slippage": float(slippage.rate),
+        "positions": side[:-1].tolist(),
+    }
+    return returns
 
 
-def performance_report(returns: pd.Series) -> Dict[str, float]:
-    """Compute basic performance statistics."""
+def performance_report(
+    returns: pd.Series,
+    *,
+    permutations: int = 200,
+    seed: int | None = 0,
+) -> Dict[str, float]:
+    """Compute comprehensive performance statistics."""
 
     if returns.empty:
-        return {"trades": 0, "avg_return": 0.0, "sharpe": 0.0}
+        return {
+            "trades": 0,
+            "avg_return": 0.0,
+            "pnl": 0.0,
+            "sharpe": 0.0,
+            "max_drawdown": 0.0,
+            "hit_rate": 0.0,
+            "turnover": 0.0,
+            "p_value": float("nan"),
+        }
+
+    pnl = float(returns.sum())
     avg = float(returns.mean())
     std = float(returns.std(ddof=0))
     sharpe = avg / std if std else 0.0
-    return {"trades": int(returns.size), "avg_return": avg, "sharpe": sharpe}
+
+    cumulative = np.cumsum(returns.to_numpy())
+    equity = np.concatenate(([0.0], cumulative))
+    running_max = np.maximum.accumulate(equity)
+    drawdowns = equity - running_max
+    max_drawdown = float(drawdowns.min())
+
+    hit_rate = float(np.mean(returns.to_numpy() > 0))
+
+    meta = returns.attrs.get("meta", {})
+    positions = np.asarray(meta.get("positions", []), dtype=float)
+    if positions.size:
+        deltas = np.diff(np.concatenate(([0.0], positions)))
+        turnover = float(np.sum(np.abs(deltas)))
+    else:
+        turnover = 0.0
+
+    prices = meta.get("prices")
+    rules = meta.get("rules")
+    threshold = meta.get("threshold")
+    slippage = meta.get("slippage")
+    if (
+        permutations > 0
+        and prices is not None
+        and rules is not None
+        and threshold is not None
+        and slippage is not None
+        and len(prices) > 1
+    ):
+        rng = np.random.default_rng(seed)
+        base_df = pd.DataFrame({"price": prices, "rule": rules})
+        sample = np.empty(permutations, dtype=float)
+        for i in range(permutations):
+            shuffled = rng.permutation(rules)
+            simulated = simulate(
+                base_df.assign(rule=shuffled),
+                float(threshold),
+                SlippageModel(rate=float(slippage)),
+            )
+            sample[i] = float(simulated.mean()) if not simulated.empty else 0.0
+        p_value = float((np.sum(sample >= avg) + 1) / (permutations + 1))
+    else:
+        p_value = float("nan")
+
+    return {
+        "trades": int(returns.size),
+        "avg_return": avg,
+        "pnl": pnl,
+        "sharpe": sharpe,
+        "max_drawdown": max_drawdown,
+        "hit_rate": hit_rate,
+        "turnover": turnover,
+        "p_value": p_value,
+    }
 
 
 def grid_search(df: pd.DataFrame, thresholds: Iterable[float], slippages: Iterable[float]) -> Dict[str, Any]:
