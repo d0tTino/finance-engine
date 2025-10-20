@@ -81,7 +81,7 @@ class DeadlineNoStrategy:
             "max_drawdown": float(drawdown),
             "hit_rate": hit_rate,
             "turnover": turnover,
-            "shuffled_pvalue": float(pvalue),
+            "p_value": float(pvalue),
         }
 
 
