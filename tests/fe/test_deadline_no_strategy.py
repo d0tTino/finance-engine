@@ -20,9 +20,9 @@ def test_strategy_metrics():
     df = make_data()
     strat = DeadlineNoStrategy(entry_days=10, exit_days=0)
     metrics = strat.backtest(df)
-    assert set("pnl sharpe max_drawdown hit_rate turnover shuffled_pvalue".split()).issubset(metrics)
+    assert set("pnl sharpe max_drawdown hit_rate turnover p_value".split()).issubset(metrics)
     assert 0 <= metrics["hit_rate"] <= 1
-    assert 0 <= metrics["shuffled_pvalue"] <= 1
+    assert 0 <= metrics["p_value"] <= 1
 
 
 def test_walk_forward_validation():
@@ -30,7 +30,7 @@ def test_walk_forward_validation():
     param_grid = {"entry_days": [12, 10], "exit_days": [0, -1]}
     results = walk_forward_validation(df, DeadlineNoStrategy, param_grid, train_size=40, test_size=10)
     assert not results.empty
-    assert {"pnl", "sharpe", "max_drawdown", "hit_rate", "turnover", "shuffled_pvalue"}.issubset(results.columns)
+    assert {"pnl", "sharpe", "max_drawdown", "hit_rate", "turnover", "p_value"}.issubset(results.columns)
     # ensure parameters used are from grid
     assert set(results["entry_days"]).issubset({12, 10})
     assert set(results["exit_days"]).issubset({0, -1})
