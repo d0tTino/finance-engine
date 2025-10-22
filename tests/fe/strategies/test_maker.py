@@ -64,6 +64,7 @@ def test_pnl_metrics_computes_expected_statistics():
     expected_drawdown = float((equity - equity.cummax()).min())
     expected_hit_rate = float((pnl > 0).mean())
     expected_turnover = float(pnl.abs().sum())
+    expected_sample_size = len(pnl)
 
     rng = np.random.default_rng(1)
     shuffled = [rng.permutation(pnl.to_numpy()).sum() for _ in range(10)]
@@ -75,6 +76,7 @@ def test_pnl_metrics_computes_expected_statistics():
     assert metrics["hit_rate"] == pytest.approx(expected_hit_rate)
     assert metrics["turnover"] == pytest.approx(expected_turnover)
     assert metrics["p_value"] == pytest.approx(expected_p_value)
+    assert metrics["sample_size"] == expected_sample_size
 
 
 def test_strategy_backtest_returns_metrics_and_series():
@@ -88,8 +90,18 @@ def test_strategy_backtest_returns_metrics_and_series():
     )
 
     assert set(
-        ["pnl", "sharpe", "max_drawdown", "hit_rate", "turnover", "p_value", "pnl_series"]
+        [
+            "pnl",
+            "sharpe",
+            "max_drawdown",
+            "hit_rate",
+            "turnover",
+            "p_value",
+            "sample_size",
+            "pnl_series",
+        ]
     ).issubset(metrics)
     assert metrics["pnl_series"].equals(expected["pnl"])
     assert isinstance(metrics["p_value"], float)
     assert 0.0 <= metrics["p_value"] <= 1.0
+    assert metrics["sample_size"] == len(expected)

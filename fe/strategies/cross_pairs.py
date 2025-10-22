@@ -260,6 +260,7 @@ def compute_backtest_metrics(
     return {
         "returns": returns,
         "cumulative": cumulative,
+        "sample_size": int(returns.shape[0]),
         "pnl": pnl,
         "sharpe": float(sharpe),
         "max_drawdown": max_drawdown,

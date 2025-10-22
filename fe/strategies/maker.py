@@ -149,6 +149,7 @@ def pnl_metrics(
         "hit_rate": hit_rate,
         "turnover": turnover,
         "p_value": float(p_value),
+        "sample_size": int(pnl.size),
     }
 
 

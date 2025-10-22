@@ -82,6 +82,7 @@ class DeadlineNoStrategy:
             "hit_rate": hit_rate,
             "turnover": turnover,
             "p_value": float(pvalue),
+            "sample_size": int(pnl.size),
         }
 
 
