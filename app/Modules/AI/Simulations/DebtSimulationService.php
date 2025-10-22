@@ -177,8 +177,15 @@ class DebtSimulationService
                 // selecting the best converging candidates. They are ranked using the same
                 // heuristic but always trail the converging entries so the total never exceeds
                 // the requested maximum.
-                usort($nonConvergingPlans, static function (array $a, array $b): int {
-                    return [$a['total_interest'], $a['months']] <=> [$b['total_interest'], $b['months']];
+                usort($nonConvergingPlans, function (array $a, array $b): int {
+                    $left  = [];
+                    $right = [];
+                    foreach ($this->rankingFields as $field) {
+                        $left[]  = $a[$field] ?? 0;
+                        $right[] = $b[$field] ?? 0;
+                    }
+
+                    return $left <=> $right;
                 });
 
                 $availableSlots    = max(0, $maxOptions - count($convergingPlans));
