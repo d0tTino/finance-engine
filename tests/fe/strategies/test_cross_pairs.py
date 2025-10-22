@@ -178,6 +178,7 @@ def test_compute_backtest_metrics_returns_expected_statistics():
     assert set(metrics) == {
         "returns",
         "cumulative",
+        "sample_size",
         "pnl",
         "sharpe",
         "max_drawdown",
@@ -187,6 +188,7 @@ def test_compute_backtest_metrics_returns_expected_statistics():
     }
     assert isinstance(metrics["returns"], pd.Series)
     assert isinstance(metrics["cumulative"], pd.Series)
+    assert metrics["sample_size"] == len(metrics["returns"])
 
     base_returns, base_cumulative = vectorized_backtest(
         prices, PAIR_DEFINITION, lookback=5, threshold=0.8, slippage=0.05
@@ -213,6 +215,7 @@ def test_strategy_backtest_exposes_metrics_dict():
     assert isinstance(metrics, dict)
     assert metrics["returns"].index.equals(prices.index)
     assert metrics["cumulative"].index.equals(prices.index)
+    assert metrics["sample_size"] == len(prices)
 
 
 def test_missing_columns_raise_key_error():

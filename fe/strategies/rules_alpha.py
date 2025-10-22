@@ -105,6 +105,7 @@ def performance_report(
     if returns.empty:
         return {
             "trades": 0,
+            "sample_size": 0,
             "avg_return": 0.0,
             "pnl": 0.0,
             "sharpe": 0.0,
@@ -164,6 +165,7 @@ def performance_report(
 
     return {
         "trades": int(returns.size),
+        "sample_size": int(returns.size),
         "avg_return": avg,
         "pnl": pnl,
         "sharpe": sharpe,

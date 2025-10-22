@@ -53,6 +53,7 @@ def test_simulate_and_performance_report(sample_frame: pd.DataFrame) -> None:
     report = performance_report(returns, permutations=permutations, seed=123)
     expected_keys = {
         "trades",
+        "sample_size",
         "avg_return",
         "pnl",
         "sharpe",
@@ -75,6 +76,7 @@ def test_simulate_and_performance_report(sample_frame: pd.DataFrame) -> None:
 
     assert report == {
         "trades": 3,
+        "sample_size": 3,
         "avg_return": pytest.approx(0.1),
         "pnl": pytest.approx(0.3),
         "sharpe": pytest.approx(np.sqrt(2)),
@@ -110,6 +112,7 @@ def test_simulate_and_report_empty_inputs() -> None:
     report = performance_report(returns)
     expected_keys = {
         "trades",
+        "sample_size",
         "avg_return",
         "pnl",
         "sharpe",
@@ -127,6 +130,7 @@ def test_simulate_and_report_empty_inputs() -> None:
     assert report["hit_rate"] == 0.0
     assert report["turnover"] == 0.0
     assert np.isnan(report["p_value"])
+    assert report["sample_size"] == 0
 
 
 def test_grid_search_selects_expected_parameters(sample_frame: pd.DataFrame) -> None:
@@ -148,9 +152,10 @@ def test_walk_forward_structure_and_parameter_usage(sample_frame: pd.DataFrame) 
         slippages=[0.0, 0.05],
     )
 
-    assert result.shape == (1, 11)
+    assert result.shape == (1, 12)
     assert list(result.columns) == [
         "trades",
+        "sample_size",
         "avg_return",
         "pnl",
         "sharpe",
@@ -166,5 +171,6 @@ def test_walk_forward_structure_and_parameter_usage(sample_frame: pd.DataFrame) 
     assert result.loc[0, "threshold"] == 0.0
     assert result.loc[0, "slippage"] == 0.0
     assert result.loc[0, "trades"] == 1
+    assert result.loc[0, "sample_size"] == 1
     assert result.loc[0, "avg_return"] == pytest.approx(0.02)
 
