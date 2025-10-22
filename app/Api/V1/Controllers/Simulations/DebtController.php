@@ -127,7 +127,7 @@ class DebtController extends Controller
                 $result['meta'] = [
                     'ranking_heuristic'       => $plan['meta']['ranking_heuristic'],
                     'ranking_reason'          => $plan['meta']['ranking_reason'] ?? $plan['meta']['ranking_heuristic'],
-                    'tradeoffs'               => $plan['meta']['tradeoffs'] ?? $plan['cost_of_deviation'],
+                    'tradeoffs'               => self::describeTradeoffs($plan),
                     'tradeoff_drivers'        => $plan['meta']['tradeoff_drivers'] ?? [],
                     'legacy_tradeoff_drivers' => $plan['meta']['legacy_tradeoff_drivers'] ?? $plan['cost_of_deviation'],
                     'heuristic_scores'        => $plan['meta']['heuristic_scores'] ?? [],
@@ -144,5 +144,63 @@ class DebtController extends Controller
             'analysis_id'      => $analysisId,
             'proposed_actions' => $proposedActions,
         ]);
+    }
+
+    /**
+     * @param array<string, mixed> $plan
+     */
+    private static function describeTradeoffs(array $plan): string
+    {
+        $tradeoffs = $plan['meta']['tradeoffs'] ?? null;
+        if (is_string($tradeoffs) && trim($tradeoffs) !== '') {
+            return $tradeoffs;
+        }
+
+        $costOfDeviation = $plan['cost_of_deviation'] ?? null;
+        if (!is_array($costOfDeviation)) {
+            return 'tradeoff impact unavailable';
+        }
+
+        $currencyValue = $costOfDeviation['currency'] ?? null;
+        $timeValue     = $costOfDeviation['time_months'] ?? null;
+
+        $hasCurrency = is_numeric($currencyValue);
+        $hasTime     = is_numeric($timeValue);
+
+        if (!$hasCurrency && !$hasTime) {
+            return 'tradeoff impact unavailable';
+        }
+
+        $currencyDescription = 'interest impact unavailable';
+        if ($hasCurrency) {
+            $currencyFloat = (float) $currencyValue;
+            if (0.0 === $currencyFloat) {
+                $currencyDescription = 'no interest impact';
+            } elseif ($currencyFloat > 0.0) {
+                $currencyDescription = sprintf('loses %s in interest savings', number_format(abs($currencyFloat), 2, '.', ''));
+            } else {
+                $currencyDescription = sprintf('saves %s more interest', number_format(abs($currencyFloat), 2, '.', ''));
+            }
+        }
+
+        $timeDescription = 'time impact unavailable';
+        if ($hasTime) {
+            $timeInteger = (int) round((float) $timeValue);
+            if (0 === $timeInteger) {
+                $timeDescription = 'no time impact';
+            } else {
+                $absMonths = abs($timeInteger);
+                $label     = 1 === $absMonths ? 'month' : 'months';
+                $timeDescription = $timeInteger > 0
+                    ? sprintf('%d extra %s', $absMonths, $label)
+                    : sprintf('%d fewer %s', $absMonths, $label);
+            }
+        }
+
+        if ('no interest impact' === $currencyDescription && 'no time impact' === $timeDescription) {
+            return 'no tradeoffs';
+        }
+
+        return sprintf('%s and %s', $currencyDescription, $timeDescription);
     }
 }
