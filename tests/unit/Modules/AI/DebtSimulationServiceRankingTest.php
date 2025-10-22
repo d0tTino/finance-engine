@@ -187,6 +187,36 @@ final class DebtSimulationServiceRankingTest extends TestCase
         config(['ai.ranking_heuristic' => DebtSimulationService::RANKING_HEURISTIC]);
     }
 
+    public function testNonConvergingPlansRespectRankingHeuristic(): void
+    {
+        $user     = $this->createAuthenticatedUser();
+        $accounts = [
+            ['account_id' => 1, 'name' => 'Loan1', 'balance' => 1000.0, 'apr' => 0.10, 'min_payment' => 0.0],
+        ];
+
+        Cache::flush();
+        config(['ai.ranking_heuristic' => DebtSimulationService::RANKING_HEURISTIC]);
+        $interestService = new StubNonConvergingDebtSimulationService();
+        $interestPlans   = $interestService->simulate((string) $user->id, '1', $accounts, 300.0, 3);
+
+        self::assertCount(2, $interestPlans);
+        self::assertSame(['low_interest_nc', 'fast_payoff_nc'], array_column($interestPlans, 'strategy'));
+        foreach ($interestPlans as $plan) {
+            self::assertSame('non_converging', $plan['status']);
+        }
+
+        Cache::flush();
+        config(['ai.ranking_heuristic' => 'months_then_interest']);
+        $monthsService = new StubNonConvergingDebtSimulationService();
+        $monthsPlans   = $monthsService->simulate((string) $user->id, '1', $accounts, 300.0, 3);
+
+        self::assertCount(2, $monthsPlans);
+        self::assertSame(['fast_payoff_nc', 'low_interest_nc'], array_column($monthsPlans, 'strategy'));
+        self::assertSame('months_then_interest', $monthsPlans[0]['meta']['ranking_heuristic']);
+
+        config(['ai.ranking_heuristic' => DebtSimulationService::RANKING_HEURISTIC]);
+    }
+
     public function testBestPlansReturnedRegardlessOfStrategyOrder(): void
     {
         Cache::flush();
@@ -292,6 +322,92 @@ final class StubDebtSimulationService extends DebtSimulationService
                 'recommendations'   => [],
                 'legacy_recommendations' => [],
                 'status'            => 'ok',
+            ];
+        }
+
+        return parent::generateSchedule($debts, $monthlyBudget, $strategy);
+    }
+}
+
+final class StubNonConvergingLowInterestStrategy implements StrategyInterface
+{
+    public function getName(): string
+    {
+        return 'low_interest_nc';
+    }
+
+    public function getExplanation(): string
+    {
+        return 'Non-converging plan with lower interest.';
+    }
+
+    public function reset(): void
+    {
+    }
+
+    public function selectTargetDebt(array $debts): ?int
+    {
+        return 0;
+    }
+}
+
+final class StubNonConvergingFastStrategy implements StrategyInterface
+{
+    public function getName(): string
+    {
+        return 'fast_payoff_nc';
+    }
+
+    public function getExplanation(): string
+    {
+        return 'Non-converging plan that finishes fastest.';
+    }
+
+    public function reset(): void
+    {
+    }
+
+    public function selectTargetDebt(array $debts): ?int
+    {
+        return 0;
+    }
+}
+
+final class StubNonConvergingDebtSimulationService extends DebtSimulationService
+{
+    public function __construct()
+    {
+        parent::__construct([
+            StubNonConvergingLowInterestStrategy::class,
+            StubNonConvergingFastStrategy::class,
+        ]);
+    }
+
+    protected function generateSchedule(array $debts, float $monthlyBudget, StrategyInterface $strategy): array
+    {
+        if ($strategy instanceof StubNonConvergingLowInterestStrategy) {
+            return [
+                'accounts'                => [],
+                'schedule'                => [],
+                'total_interest'          => 150.0,
+                'months'                  => 30,
+                'monthly_cash_flow'       => [],
+                'recommendations'         => [],
+                'legacy_recommendations'  => [],
+                'status'                  => 'non_converging',
+            ];
+        }
+
+        if ($strategy instanceof StubNonConvergingFastStrategy) {
+            return [
+                'accounts'                => [],
+                'schedule'                => [],
+                'total_interest'          => 180.0,
+                'months'                  => null,
+                'monthly_cash_flow'       => [],
+                'recommendations'         => [],
+                'legacy_recommendations'  => [],
+                'status'                  => 'non_converging',
             ];
         }
 
