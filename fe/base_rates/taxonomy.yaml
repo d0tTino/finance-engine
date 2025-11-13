@@ -11,9 +11,13 @@ geopolitics:
       # Aligns geopolitical events by calendar date to track
       # immediate market responses.
       description: "Group events by the specific date they occurred."
+      min_days: 0
+      max_days: 7
     by_region:
       # Segments events by affected region or country for regional analysis.
       description: "Group events based on their geographic region or country."
+      min_days: 8
+      max_days: null
 
 macroeconomics:
   # High-level economic indicators influencing broad market behavior.
@@ -21,12 +25,18 @@ macroeconomics:
     annual:
       # Yearly aggregates suitable for long-term trend analysis.
       description: "Aggregate indicators on a yearly basis."
+      min_days: 136
+      max_days: null
     quarterly:
       # Quarter-by-quarter figures capturing business cycles.
       description: "Aggregate indicators by fiscal quarter."
+      min_days: 46
+      max_days: 135
     monthly:
       # Monthly data for timely signals.
       description: "Aggregate indicators by month."
+      min_days: 0
+      max_days: 45
 
 sector:
   # Industry or sector specific data reflecting micro-level trends.
@@ -34,9 +44,13 @@ sector:
     by_industry:
       # Organizes metrics by industry classification.
       description: "Group data by industry sector."
+      min_days: 0
+      max_days: 90
     by_company:
       # Allows drilling down to individual companies for detailed analysis.
       description: "Group data at the company level."
+      min_days: 91
+      max_days: null
 
 market_microstructure:
   # Characteristics of trading environments and market liquidity.
@@ -44,15 +58,23 @@ market_microstructure:
     intraday:
       # Captures sub-daily trading dynamics.
       description: "Data sampled within a single trading day."
+      min_days: 0
+      max_days: 1
     daily:
       # End-of-day snapshots of market structure.
       description: "Data aggregated per trading day."
+      min_days: 2
+      max_days: 7
     weekly:
       # Higher-level view to smooth short-term noise.
       description: "Data aggregated per week."
+      min_days: 8
+      max_days: null
 corporate:
   # Company-level events and governance changes.
   horizons:
     ceo_change:
       # Evaluates market reactions to CEO transitions.
       description: "Group events by the announcement or effective date of CEO changes."
+      min_days: 0
+      max_days: null

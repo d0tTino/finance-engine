@@ -14,7 +14,9 @@ def test_taxonomy_includes_expected_categories():
     assert "geopolitics" in taxonomy
     assert "corporate" in taxonomy
     assert "by_date" in taxonomy["geopolitics"]["horizons"]
+    assert taxonomy["geopolitics"]["horizons"]["by_date"]["min_days"] == 0
     assert "ceo_change" in taxonomy["corporate"]["horizons"]
+    assert taxonomy["corporate"]["horizons"]["ceo_change"]["max_days"] is None
 
 
 def test_new_categories_have_historical_data():
