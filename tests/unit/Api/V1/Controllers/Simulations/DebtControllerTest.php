@@ -59,16 +59,23 @@ final class DebtControllerTest extends TestCase
 
         $controller = new DebtController($service);
 
-        $request = $this->createMock(DebtRequest::class);
-        $request->method('getData')->willReturn([
-            'user_id'        => 'user-uuid',
-            'group_id'       => null,
-            'accounts'       => [
-                ['account_id' => 'acc-1', 'balance' => 100.0, 'apr' => 0.05, 'minimum_payment' => 20.0],
-            ],
-            'monthly_budget' => 100.0,
-            'max_options'    => 1,
-        ]);
+        $request = new class extends DebtRequest {
+            /**
+             * @return array<string, mixed>
+             */
+            public function getData(): array
+            {
+                return [
+                    'user_id'        => 'user-uuid',
+                    'group_id'       => null,
+                    'accounts'       => [
+                        ['account_id' => 'acc-1', 'balance' => 100.0, 'apr' => 0.05, 'minimum_payment' => 20.0],
+                    ],
+                    'monthly_budget' => 100.0,
+                    'max_options'    => 1,
+                ];
+            }
+        };
 
         $response = $controller($request);
         self::assertInstanceOf(JsonResponse::class, $response);

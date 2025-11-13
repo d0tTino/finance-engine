@@ -138,12 +138,12 @@ final class DebtSimulationApiTest extends IntegrationTestCase
             self::assertIsArray($legacySchedule['balances']);
             self::assertArrayHasKey('recommendations', $action['plan']);
             self::assertArrayHasKey('legacy_recommendations', $action['plan']);
+            self::assertArrayHasKey('cost_of_deviation', $action);
+            self::assertArrayHasKey('currency', $action['cost_of_deviation']);
+            self::assertArrayHasKey('time_months', $action['cost_of_deviation']);
             if ((bool) $action['is_optimal']) {
-                self::assertArrayNotHasKey('cost_of_deviation', $action);
-            } else {
-                self::assertArrayHasKey('cost_of_deviation', $action);
-                self::assertArrayHasKey('currency', $action['cost_of_deviation']);
-                self::assertArrayHasKey('time_months', $action['cost_of_deviation']);
+                self::assertEqualsWithDelta(0.0, (float) $action['cost_of_deviation']['currency'], 0.0001);
+                self::assertEquals(0, (int) $action['cost_of_deviation']['time_months']);
             }
             self::assertArrayHasKey('ranking_reason', $action['meta']);
             self::assertIsString($action['meta']['tradeoffs']);
@@ -289,12 +289,14 @@ final class DebtSimulationApiTest extends IntegrationTestCase
         self::assertGreaterThan(1, count($actions));
 
         foreach ($actions as $action) {
-            if (!(bool) $action['is_optimal']) {
-                self::assertArrayHasKey('cost_of_deviation', $action);
-                self::assertArrayHasKey('currency', $action['cost_of_deviation']);
-                self::assertArrayHasKey('time_months', $action['cost_of_deviation']);
-                self::assertIsNumeric($action['cost_of_deviation']['currency']);
-                self::assertIsNumeric($action['cost_of_deviation']['time_months']);
+            self::assertArrayHasKey('cost_of_deviation', $action);
+            self::assertArrayHasKey('currency', $action['cost_of_deviation']);
+            self::assertArrayHasKey('time_months', $action['cost_of_deviation']);
+            self::assertIsNumeric($action['cost_of_deviation']['currency']);
+            self::assertIsNumeric($action['cost_of_deviation']['time_months']);
+            if ((bool) $action['is_optimal']) {
+                self::assertEqualsWithDelta(0.0, (float) $action['cost_of_deviation']['currency'], 0.0001);
+                self::assertEquals(0, (int) $action['cost_of_deviation']['time_months']);
             }
             self::assertArrayHasKey('heuristic_scores', $action['meta']);
             self::assertArrayHasKey('total_interest', $action['meta']['heuristic_scores']);

@@ -97,6 +97,15 @@ class DebtController extends Controller
                     $plan['schedule']
                 );
 
+                $costOfDeviation = [
+                    'currency'    => isset($plan['cost_of_deviation']['currency'])
+                        ? (float) $plan['cost_of_deviation']['currency']
+                        : 0.0,
+                    'time_months' => isset($plan['cost_of_deviation']['time_months'])
+                        ? (int) $plan['cost_of_deviation']['time_months']
+                        : 0,
+                ];
+
                 $result = [
                     'rank'       => $plan['rank'],
                     'is_optimal' => $plan['is_optimal'],
@@ -115,14 +124,8 @@ class DebtController extends Controller
                         'total_interest_paid'   => (float) $plan['total_interest'],
                         'monthly_cash_flow'     => $plan['monthly_cash_flow'],
                     ],
+                    'cost_of_deviation' => $costOfDeviation,
                 ];
-
-                if (!(bool) $plan['is_optimal']) {
-                    $result['cost_of_deviation'] = [
-                        'currency'    => (float) $plan['cost_of_deviation']['currency'],
-                        'time_months' => (int) $plan['cost_of_deviation']['time_months'],
-                    ];
-                }
 
                 $result['meta'] = [
                     'ranking_heuristic'       => $plan['meta']['ranking_heuristic'],
