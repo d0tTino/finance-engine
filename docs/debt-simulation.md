@@ -1,6 +1,7 @@
 # Debt Simulation
 
-The debt simulation endpoint evaluates multiple payoff strategies and returns ranked plans with metrics.
+The debt simulation endpoint evaluates multiple payoff strategies and returns ranked plans with metrics. Each plan now always
+includes a `cost_of_deviation` payload—even when the plan is optimal—so SDKs and clients can rely on a stable schema.
 
 ## Endpoint
 
@@ -293,6 +294,7 @@ Simulation results are cached per user to speed up repeated requests. The cache 
   - `cost_of_deviation` – Extra cost versus the optimal plan:
     - `currency` – Additional interest compared to the optimal plan.
     - `time_months` – Additional duration compared to the optimal plan in months.
+    - Optimal plans return zeros for both values so integrators can rely on a consistent object shape when checking for penalties.
   - `meta` – Additional information about the plan:
     - `strategy_explanation` – Description of how the payoff strategy works.
     - `ranking_heuristic` – Ranking algorithm applied to the plans.
