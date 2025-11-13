@@ -1,18 +1,21 @@
 """Base rate estimator using isotonic regression.
 
 This module provides `estimate_prior` for computing outside-view priors
-based on historical resolution data. Probabilities are calibrated using
-isotonic regression to ensure monotonicity with respect to the time
-horizon. A Wilson score interval is returned as a measure of
-uncertainty.
+based on historical resolution data. Historical rows are first mapped to
+taxonomy-defined horizon buckets before fitting isotonic regression
+models, ensuring calibration respects the declared time scopes for each
+category. Probabilities are calibrated using isotonic regression to
+ensure monotonicity with respect to the time horizon. A Wilson score
+interval is returned as a measure of uncertainty.
 """
 from __future__ import annotations
 
 import argparse
 import json
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, Iterable, Tuple
 
 import numpy as np
 import pandas as pd
@@ -21,6 +24,103 @@ from sklearn.isotonic import IsotonicRegression
 
 _DATA: pd.DataFrame | None = None
 _MODELS: Dict[str, Tuple[IsotonicRegression, pd.DataFrame]] = {}
+_TAXONOMY: dict[str, dict] | None = None
+
+
+@dataclass(frozen=True)
+class HorizonDefinition:
+    """Definition of a taxonomy horizon bucket."""
+
+    name: str
+    index: int
+    min_days: int | None
+    max_days: int | None
+
+
+_CATEGORY_HORIZONS: Dict[str, list[HorizonDefinition]] = {}
+_BUCKET_NAME_LOOKUP: Dict[Tuple[str, int], str] = {}
+
+
+def _prepare_taxonomy_structures(
+    taxonomy: Dict[str, dict]
+) -> Tuple[Dict[str, list[HorizonDefinition]], Dict[Tuple[str, int], str]]:
+    """Return processed taxonomy helpers for quick lookups."""
+
+    category_horizons: Dict[str, list[HorizonDefinition]] = {}
+    bucket_lookup: Dict[Tuple[str, int], str] = {}
+
+    for category, info in taxonomy.items():
+        horizons = info.get("horizons") or {}
+        processed: list[HorizonDefinition] = []
+        for idx, (name, details) in enumerate(horizons.items()):
+            min_days = details.get("min_days")
+            max_days = details.get("max_days")
+            if min_days is not None:
+                min_days = int(min_days)
+            if max_days is not None:
+                max_days = int(max_days)
+            horizon_def = HorizonDefinition(name=name, index=idx, min_days=min_days, max_days=max_days)
+            processed.append(horizon_def)
+            bucket_lookup[(category, idx)] = name
+        category_horizons[category] = processed
+
+    return category_horizons, bucket_lookup
+
+
+def _load_taxonomy() -> Dict[str, dict]:
+    """Load taxonomy metadata and cached helpers."""
+
+    global _TAXONOMY, _CATEGORY_HORIZONS, _BUCKET_NAME_LOOKUP
+    if _TAXONOMY is not None:
+        return _TAXONOMY
+
+    taxonomy_path = Path(__file__).with_name("taxonomy.yaml")
+    _TAXONOMY = yaml.safe_load(taxonomy_path.read_text()) or {}
+    _CATEGORY_HORIZONS, _BUCKET_NAME_LOOKUP = _prepare_taxonomy_structures(_TAXONOMY)
+    return _TAXONOMY
+
+
+def _find_bucket(category: str, horizon_days: int) -> HorizonDefinition | None:
+    """Return the taxonomy bucket matching ``horizon_days``."""
+
+    _load_taxonomy()
+    horizons = _CATEGORY_HORIZONS.get(category, [])
+    if not horizons:
+        return None
+
+    for horizon in horizons:
+        min_ok = horizon.min_days is None or horizon_days >= horizon.min_days
+        max_ok = horizon.max_days is None or horizon_days <= horizon.max_days
+        if min_ok and max_ok:
+            return horizon
+
+    # If no direct match was found, clamp to the closest bucket by range.
+    first = horizons[0]
+    last = horizons[-1]
+    if first.min_days is not None and horizon_days < first.min_days:
+        return first
+    return last
+
+
+def _bucketize_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """Attach taxonomy bucket metadata to the historical dataset."""
+
+    rows: Iterable[dict] = []
+    for record in df.to_dict("records"):
+        category = record.get("category")
+        horizon_days = int(record.get("horizon_days", 0))
+        bucket = _find_bucket(category, horizon_days)
+        if bucket is None:
+            # Skip rows that cannot be mapped to a taxonomy bucket.
+            continue
+        record["horizon_bucket"] = bucket.name
+        record["bucket_index"] = bucket.index
+        rows.append(record)
+    if not rows:
+        return pd.DataFrame(columns=list(df.columns) + ["horizon_bucket", "bucket_index"])
+    bucketed = pd.DataFrame(rows)
+    bucketed["bucket_index"] = bucketed["bucket_index"].astype(int)
+    return bucketed
 
 
 def _load_data() -> None:
@@ -29,10 +129,12 @@ def _load_data() -> None:
     if _DATA is not None:
         return
     data_path = Path(__file__).with_name("historical.csv")
-    _DATA = pd.read_csv(data_path)
+    raw = pd.read_csv(data_path)
+    _load_taxonomy()
+    _DATA = _bucketize_dataframe(raw)
     for cat, df_cat in _DATA.groupby("category"):
         model = IsotonicRegression(out_of_bounds="clip")
-        model.fit(df_cat["horizon_days"], df_cat["outcome"])
+        model.fit(df_cat["bucket_index"], df_cat["outcome"])
         _MODELS[cat] = (model, df_cat)
 
 
@@ -74,22 +176,20 @@ def estimate_prior(
     if category not in _MODELS:
         raise ValueError(f"unknown category: {category}")
 
-    horizon = (deadline - datetime.utcnow()).days
-    horizon = max(horizon, 0)
+    horizon_days = (deadline - datetime.utcnow()).days
+    horizon_days = max(horizon_days, 0)
+    bucket = _find_bucket(category, horizon_days)
+    if bucket is None:
+        raise ValueError(f"no taxonomy horizon for category '{category}'")
 
     model, df_cat = _MODELS[category]
-    prob = float(model.predict([horizon])[0])
+    prob = float(model.predict([bucket.index])[0])
 
-    window = 30
-    mask = (
-        (df_cat["horizon_days"] >= horizon - window)
-        & (df_cat["horizon_days"] <= horizon + window)
-    )
-    window_df = df_cat[mask]
-    if window_df.empty:
-        window_df = df_cat
-    successes = window_df["outcome"].sum()
-    n = len(window_df)
+    bucket_df = df_cat[df_cat["bucket_index"] == bucket.index]
+    if bucket_df.empty:
+        bucket_df = df_cat
+    successes = bucket_df["outcome"].sum()
+    n = len(bucket_df)
     ci = _wilson_interval(successes, n)
     return prob, ci
 
@@ -144,9 +244,9 @@ def evaluate_brier_score(
         test = df_cat.iloc[split:]
 
         model = IsotonicRegression(out_of_bounds="clip")
-        model.fit(train["horizon_days"], train["outcome"])
+        model.fit(train["bucket_index"], train["outcome"])
 
-        preds = model.predict(test["horizon_days"])
+        preds = model.predict(test["bucket_index"])
         isotonic_preds.extend(preds.tolist())
         flat_preds.extend([0.5] * len(test))
         outcomes.extend(test["outcome"].tolist())
@@ -168,7 +268,7 @@ def evaluate_brier_score(
 
 def evaluate_brier_by_taxonomy(
     test_size: float = 0.2, random_state: int | None = 0
-) -> Dict[str, Tuple[float, float]]:
+) -> Dict[str, Dict[str, Tuple[float, float]]]:
     """Evaluate Brier scores for each taxonomy bucket.
 
     Taxonomy categories are defined in ``taxonomy.yaml``. For each
@@ -185,44 +285,54 @@ def evaluate_brier_by_taxonomy(
 
     Returns
     -------
-    Dict[str, Tuple[float, float]]
-        Mapping of taxonomy bucket to ``(score, improvement)``.
+    Dict[str, Dict[str, Tuple[float, float]]]
+        Mapping of taxonomy category to its horizon bucket scores.
     """
 
     _load_data()
     if _DATA is None:
         raise RuntimeError("historical data failed to load")
 
-    taxonomy_path = Path(__file__).with_name("taxonomy.yaml")
-    taxonomy = yaml.safe_load(taxonomy_path.read_text()) or {}
-
-    results: Dict[str, Tuple[float, float]] = {}
+    results: Dict[str, Dict[str, Tuple[float, float]]] = {}
     rng = np.random.default_rng(random_state)
-
-    for bucket in taxonomy.keys():
-        df_bucket = _DATA[_DATA["category"] == bucket]
-        if len(df_bucket) < 2:
-            # Need at least one point for training and one for testing.
+    taxonomy = _load_taxonomy()
+    for category, df_cat in _DATA.groupby("category"):
+        if category not in taxonomy:
+            continue
+        if len(df_cat) < 2:
             continue
 
-        df_bucket = df_bucket.sample(
+        df_cat = df_cat.sample(
             frac=1, random_state=rng.integers(0, 2**32)
         )
-        split = int(len(df_bucket) * (1 - test_size))
-        split = min(max(split, 1), len(df_bucket) - 1)
-        train = df_bucket.iloc[:split]
-        test = df_bucket.iloc[split:]
+        split = int(len(df_cat) * (1 - test_size))
+        split = min(max(split, 1), len(df_cat) - 1)
+        train = df_cat.iloc[:split]
+        test = df_cat.iloc[split:]
 
         model = IsotonicRegression(out_of_bounds="clip")
-        model.fit(train["horizon_days"], train["outcome"])
+        model.fit(train["bucket_index"], train["outcome"])
 
-        preds = model.predict(test["horizon_days"])
-        iso_score = float(np.mean((preds - test["outcome"]) ** 2))
-        flat_score = float(np.mean((0.5 - test["outcome"]) ** 2))
-        improvement = 0.0
-        if flat_score > 0:
-            improvement = 100.0 * (flat_score - iso_score) / flat_score
-        results[bucket] = (iso_score, improvement)
+        preds = model.predict(test["bucket_index"])
+        test = test.assign(pred=preds)
+
+        cat_results: Dict[str, Tuple[float, float]] = {}
+        for bucket_index, df_bucket in test.groupby("bucket_index"):
+            bucket_name = _BUCKET_NAME_LOOKUP.get((category, int(bucket_index)))
+            if bucket_name is None or df_bucket.empty:
+                continue
+            iso_score = float(
+                np.mean((df_bucket["pred"] - df_bucket["outcome"]) ** 2)
+            )
+            flat_score = float(
+                np.mean((0.5 - df_bucket["outcome"]) ** 2)
+            )
+            improvement = 0.0
+            if flat_score > 0:
+                improvement = 100.0 * (flat_score - iso_score) / flat_score
+            cat_results[bucket_name] = (iso_score, improvement)
+        if cat_results:
+            results[category] = cat_results
 
     return results
 
