@@ -23,7 +23,16 @@ import yaml
 from sklearn.isotonic import IsotonicRegression
 
 _DATA: pd.DataFrame | None = None
-_MODELS: Dict[str, Tuple[IsotonicRegression, pd.DataFrame]] = {}
+@dataclass
+class CategoryModel:
+    """Container holding the calibrated model and bucket metadata."""
+
+    model: IsotonicRegression
+    rows: pd.DataFrame
+    bucket_summary: pd.DataFrame
+
+
+_MODELS: Dict[str, CategoryModel] = {}
 _TAXONOMY: dict[str, dict] | None = None
 
 
@@ -125,17 +134,34 @@ def _bucketize_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 
 def _load_data() -> None:
     """Load historical resolution data and fit isotonic models."""
+
     global _DATA
     if _DATA is not None:
         return
+
     data_path = Path(__file__).with_name("historical.csv")
     raw = pd.read_csv(data_path)
     _load_taxonomy()
     _DATA = _bucketize_dataframe(raw)
+
     for cat, df_cat in _DATA.groupby("category"):
+        if df_cat.empty:
+            continue
+        summary = (
+            df_cat.groupby(["bucket_index", "horizon_bucket"], as_index=False)
+            .agg(successes=("outcome", "sum"), total=("outcome", "size"))
+            .sort_values("bucket_index")
+        )
+        summary["bucket_index"] = summary["bucket_index"].astype(int)
+        summary["total"] = summary["total"].astype(int)
+        rates = summary["successes"] / summary["total"]
         model = IsotonicRegression(out_of_bounds="clip")
-        model.fit(df_cat["bucket_index"], df_cat["outcome"])
-        _MODELS[cat] = (model, df_cat)
+        model.fit(
+            summary["bucket_index"],
+            rates,
+            sample_weight=summary["total"],
+        )
+        _MODELS[cat] = CategoryModel(model=model, rows=df_cat, bucket_summary=summary)
 
 
 def _wilson_interval(
@@ -182,12 +208,12 @@ def estimate_prior(
     if bucket is None:
         raise ValueError(f"no taxonomy horizon for category '{category}'")
 
-    model, df_cat = _MODELS[category]
-    prob = float(model.predict([bucket.index])[0])
+    cat_model = _MODELS[category]
+    prob = float(cat_model.model.predict([bucket.index])[0])
 
-    bucket_df = df_cat[df_cat["bucket_index"] == bucket.index]
+    bucket_df = cat_model.rows[cat_model.rows["bucket_index"] == bucket.index]
     if bucket_df.empty:
-        bucket_df = df_cat
+        bucket_df = cat_model.rows
     successes = bucket_df["outcome"].sum()
     n = len(bucket_df)
     ci = _wilson_interval(successes, n)
@@ -232,7 +258,8 @@ def evaluate_brier_score(
 
     rng = np.random.default_rng(random_state)
 
-    for _, df_cat in _DATA.groupby("category"):
+    for category, cat_model in _MODELS.items():
+        df_cat = cat_model.rows
         if len(df_cat) < 2:
             # Need at least one point for training and one for testing.
             continue
@@ -296,7 +323,8 @@ def evaluate_brier_by_taxonomy(
     results: Dict[str, Dict[str, Tuple[float, float]]] = {}
     rng = np.random.default_rng(random_state)
     taxonomy = _load_taxonomy()
-    for category, df_cat in _DATA.groupby("category"):
+    for category, cat_model in _MODELS.items():
+        df_cat = cat_model.rows
         if category not in taxonomy:
             continue
         if len(df_cat) < 2:

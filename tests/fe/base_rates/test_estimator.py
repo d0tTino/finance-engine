@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import math
+import numpy as np
 import pandas as pd
 import pytest
 import yaml
@@ -92,7 +93,7 @@ def test_taxonomy_brier_scores_cover_all_horizons(mock_taxonomy_and_historical):
     results = evaluate_brier_by_taxonomy(random_state=1)
     assert set(results) == set(taxonomy)
     for category, horizons in results.items():
-        assert set(horizons) <= set(taxonomy[category]["horizons"])
+        assert set(horizons) == set(taxonomy[category]["horizons"])
         for score, improvement in horizons.values():
             assert score >= 0
             assert math.isfinite(improvement)
@@ -114,3 +115,36 @@ def test_estimate_prior_uses_horizon_buckets(mock_taxonomy_and_historical):
     for ci in (ci_near, ci_long):
         assert len(ci) == 2 and not any(math.isnan(v) for v in ci)
         assert all(0 <= v <= 1 for v in ci)
+
+
+def test_bucket_summary_tracks_taxonomy_horizons(mock_taxonomy_and_historical):
+    taxonomy, _ = mock_taxonomy_and_historical
+    estimator._load_data()
+    geopolitics_model = estimator._MODELS["geopolitics"]
+    assert set(geopolitics_model.bucket_summary["horizon_bucket"]) == set(
+        taxonomy["geopolitics"]["horizons"].keys()
+    )
+    assert geopolitics_model.bucket_summary["total"].sum() == 12
+
+
+def test_brier_score_training_uses_bucket_indices(
+    monkeypatch, mock_taxonomy_and_historical
+):
+    taxonomy, _ = mock_taxonomy_and_historical
+    expected_indices: set[int] = set()
+    for info in taxonomy.values():
+        expected_indices.update(range(len(info["horizons"])))
+
+    seen: list[set[int]] = []
+    original_fit = estimator.IsotonicRegression.fit
+
+    def spy(self, X, y, sample_weight=None):  # type: ignore[override]
+        unique_indices = set(np.unique(np.asarray(X, dtype=int)).tolist())
+        seen.append(unique_indices)
+        return original_fit(self, X, y, sample_weight=sample_weight)
+
+    monkeypatch.setattr(estimator.IsotonicRegression, "fit", spy)
+    evaluate_brier_score(random_state=2, test_size=0.5)
+    assert seen, "expected at least one fit call"
+    for indices in seen:
+        assert indices <= expected_indices
