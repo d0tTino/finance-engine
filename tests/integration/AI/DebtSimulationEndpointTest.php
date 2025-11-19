@@ -152,6 +152,14 @@ final class DebtSimulationEndpointTest extends TestCase
         $optimalPlans = array_values(array_filter($actions, static fn (array $action): bool => (bool) $action['is_optimal']));
         self::assertNotEmpty($optimalPlans);
 
+        foreach ($optimalPlans as $optimalPlan) {
+            self::assertArrayHasKey('cost_of_deviation', $optimalPlan);
+            self::assertArrayHasKey('currency', $optimalPlan['cost_of_deviation']);
+            self::assertArrayHasKey('time_months', $optimalPlan['cost_of_deviation']);
+            self::assertEqualsWithDelta(0.0, (float) $optimalPlan['cost_of_deviation']['currency'], 0.0001);
+            self::assertEquals(0, (int) $optimalPlan['cost_of_deviation']['time_months']);
+        }
+
         $bestPlan  = $optimalPlans[0];
         $schedule  = $bestPlan['plan']['schedule'];
         $cashFlows = $bestPlan['metrics']['monthly_cash_flow'];

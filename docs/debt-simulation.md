@@ -1,7 +1,8 @@
 # Debt Simulation
 
 The debt simulation endpoint evaluates multiple payoff strategies and returns ranked plans with metrics. Each plan now always
-includes a `cost_of_deviation` payload—even when the plan is optimal—so SDKs and clients can rely on a stable schema.
+includes a `cost_of_deviation` payload—even when the plan is optimal—so SDKs and clients can rely on a stable schema. Optimal
+plans simply report `0.0` currency impact and `0` extra months, clearly communicating that no penalties apply to the best option.
 
 ## Endpoint
 
