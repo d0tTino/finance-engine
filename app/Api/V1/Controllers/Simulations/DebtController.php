@@ -65,6 +65,10 @@ class DebtController extends Controller
         $analysisId      = (string) Str::uuid();
         $proposedActions = array_map(
             static function (array $plan): array {
+                $costOfDeviation = self::serializeCostOfDeviation($plan);
+                $planForMeta     = $plan;
+                $planForMeta['cost_of_deviation'] = $costOfDeviation;
+
                 $schedule = array_map(
                     static function (array $entry): array {
                         return [
@@ -97,15 +101,6 @@ class DebtController extends Controller
                     $plan['schedule']
                 );
 
-                $costOfDeviation = [
-                    'currency'    => isset($plan['cost_of_deviation']['currency'])
-                        ? (float) $plan['cost_of_deviation']['currency']
-                        : 0.0,
-                    'time_months' => isset($plan['cost_of_deviation']['time_months'])
-                        ? (int) $plan['cost_of_deviation']['time_months']
-                        : 0,
-                ];
-
                 $result = [
                     'rank'       => $plan['rank'],
                     'is_optimal' => $plan['is_optimal'],
@@ -130,9 +125,9 @@ class DebtController extends Controller
                 $result['meta'] = [
                     'ranking_heuristic'       => $plan['meta']['ranking_heuristic'],
                     'ranking_reason'          => $plan['meta']['ranking_reason'] ?? $plan['meta']['ranking_heuristic'],
-                    'tradeoffs'               => self::describeTradeoffs($plan),
+                    'tradeoffs'               => self::describeTradeoffs($planForMeta),
                     'tradeoff_drivers'        => $plan['meta']['tradeoff_drivers'] ?? [],
-                    'legacy_tradeoff_drivers' => $plan['meta']['legacy_tradeoff_drivers'] ?? $plan['cost_of_deviation'],
+                    'legacy_tradeoff_drivers' => $plan['meta']['legacy_tradeoff_drivers'] ?? $costOfDeviation,
                     'heuristic_scores'        => $plan['meta']['heuristic_scores'] ?? [],
                     'strategy_explanation'    => $plan['meta']['strategy_explanation'],
                     'accounts'                => $plan['meta']['accounts'] ?? ($plan['accounts'] ?? []),
@@ -147,6 +142,36 @@ class DebtController extends Controller
             'analysis_id'      => $analysisId,
             'proposed_actions' => $proposedActions,
         ]);
+    }
+
+    /**
+     * Normalize the simulation-provided cost-of-deviation structure.
+     *
+     * @param array<string, mixed> $plan
+     *
+     * @return array{currency: float, time_months: int}
+     */
+    private static function serializeCostOfDeviation(array $plan): array
+    {
+        $raw = $plan['cost_of_deviation'] ?? null;
+
+        $currency = 0.0;
+        $time     = 0;
+
+        if (is_array($raw)) {
+            if (array_key_exists('currency', $raw) && is_numeric($raw['currency'])) {
+                $currency = (float) $raw['currency'];
+            }
+
+            if (array_key_exists('time_months', $raw) && is_numeric($raw['time_months'])) {
+                $time = (int) $raw['time_months'];
+            }
+        }
+
+        return [
+            'currency'    => $currency,
+            'time_months' => $time,
+        ];
     }
 
     /**
