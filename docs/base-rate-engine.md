@@ -1,6 +1,6 @@
 # Base Rate Engine
 
-The base rate engine estimates outside-view probabilities using historical resolution data. It fits monotonic isotonic regression models for each category and reports calibrated probabilities with Wilson score intervals.
+The base rate engine estimates outside-view probabilities using historical resolution data. It fits monotonic isotonic regression models for each category and reports calibrated probabilities with Wilson score intervals. Historical rows are first mapped into the horizon buckets declared in `fe/base_rates/taxonomy.yaml`, ensuring that both prior estimation and Brier-score evaluations respect the taxonomy's time scopes.
 
 ## CLI
 
