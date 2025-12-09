@@ -190,7 +190,7 @@ final class DebtSimulationTest extends TestCase
                         'total_interest_paid',
                         'monthly_cash_flow',
                     ],
-                    'meta' => ['ranking_heuristic', 'tradeoffs', 'ranking_reason', 'strategy_explanation', 'tradeoff_drivers', 'legacy_tradeoff_drivers', 'accounts'],
+                    'meta' => ['ranking_heuristic', 'tradeoffs', 'ranking_reason', 'strategy_explanation', 'tradeoff_drivers', 'legacy_tradeoff_drivers', 'accounts', 'account_drivers'],
                 ],
             ],
         ]);

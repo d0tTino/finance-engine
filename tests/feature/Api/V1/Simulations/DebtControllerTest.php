@@ -105,17 +105,18 @@ final class DebtControllerTest extends TestCase
                     'total_interest_paid',
                     'monthly_cash_flow',
                 ],
-                'meta' => [
-                    'ranking_heuristic',
-                    'tradeoffs',
-                    'tradeoff_drivers',
-                    'legacy_tradeoff_drivers',
-                    'heuristic_scores',
-                    'strategy_explanation',
-                    'ranking_reason',
-                    'accounts',
-                ],
-            ]],
+                    'meta' => [
+                        'ranking_heuristic',
+                        'tradeoffs',
+                        'tradeoff_drivers',
+                        'legacy_tradeoff_drivers',
+                        'heuristic_scores',
+                        'strategy_explanation',
+                        'ranking_reason',
+                        'accounts',
+                        'account_drivers',
+                    ],
+                ]],
         ]);
 
         self::assertTrue(Str::isUuid($response->json('analysis_id')));
@@ -126,6 +127,7 @@ final class DebtControllerTest extends TestCase
         self::assertTrue((bool) $action['is_optimal']);
         self::assertIsArray($action['plan']['schedule']);
         self::assertNotEmpty($action['plan']['schedule']);
+        self::assertArrayHasKey('annotations', $action['plan']['schedule'][0]);
         self::assertIsArray($action['plan']['legacy_schedule']);
         self::assertSameSize($action['plan']['schedule'], $action['plan']['legacy_schedule']);
         self::assertIsString($action['plan']['status']);
@@ -133,6 +135,7 @@ final class DebtControllerTest extends TestCase
         self::assertIsArray($action['meta']['tradeoff_drivers']);
         self::assertIsArray($action['meta']['legacy_tradeoff_drivers']);
         self::assertIsArray($action['meta']['accounts']);
+        self::assertIsArray($action['meta']['account_drivers']);
         self::assertIsString($action['meta']['tradeoffs']);
     }
 
