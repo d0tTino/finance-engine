@@ -162,6 +162,17 @@ Simulation results are cached per user to speed up repeated requests. The cache 
           "currency": 0,
           "time_months": 0
         },
+        "account_drivers": [
+          {
+            "account_id": "af13c6c4-1d05-4d26-8b16-ef3d988c1f02",
+            "display_name": "Loan 1",
+            "drivers": {
+              "apr": {"display_name": "APR priority", "value": 0.1, "reason": "Extra payments focus on the highest APR first to cut interest costs."},
+              "balance": {"display_name": "Balance priority", "value": 5000, "reason": "Balances are considered after APR when selecting targets."},
+              "minimum_payment": {"display_name": "Minimum payment", "value": 50, "reason": "Minimum payments are made before targeting extra payments."}
+            }
+          }
+        ],
         "accounts": [
           {"account_id": "af13c6c4-1d05-4d26-8b16-ef3d988c1f02", "display_name": "Loan 1"},
           {"account_id": "b2a1a148-9b91-455c-8964-fba303b3f7ca", "display_name": "Loan 2"}
@@ -204,6 +215,15 @@ Simulation results are cached per user to speed up repeated requests. The cache 
                 "balance": 1175
               }
             },
+            "annotations": [
+              {
+                "type": "target_selection",
+                "account_id": "af13c6c4-1d05-4d26-8b16-ef3d988c1f02",
+                "display_name": "Loan 1",
+                "reason": "Chosen because this debt currently has the highest APR.",
+                "drivers": {"apr": {"display_name": "APR priority", "value": 0.1, "reason": "Extra payments focus on the highest APR first to cut interest costs."}}
+              }
+            ],
             "payments_legacy": {"Loan 1": 475, "Loan 2": 25},
             "balances_legacy": {"Loan 1": 4025, "Loan 2": 1175},
             "interest": 57.19,
@@ -287,7 +307,7 @@ Simulation results are cached per user to speed up repeated requests. The cache 
   - `plan` – Detailed strategy output:
     - `strategy` – Name of the heuristic applied (`avalanche`, `snowball`, `balanced`, or `ml`).
     - `accounts` – Metadata for each simulated account, exposing both the `account_id` (UUID) and the `display_name` used in the human-readable output.
-    - `schedule` – Monthly breakdown keyed by account UUID. Each entry contains both structured `payments`/`balances` objects and `payments_legacy`/`balances_legacy` maps for backward compatibility.
+    - `schedule` – Monthly breakdown keyed by account UUID. Each entry contains both structured `payments`/`balances` objects and `payments_legacy`/`balances_legacy` maps for backward compatibility, plus `annotations` describing why extra payments were directed to specific debts.
     - `legacy_schedule` – A historical view of the schedule using the previous name-keyed representation.
     - `recommendations` – Associative array keyed by account UUID that includes the refinance message and the display name.
     - `legacy_recommendations` – Array of refinance suggestions in the legacy string-only format.
@@ -309,6 +329,7 @@ Simulation results are cached per user to speed up repeated requests. The cache 
     - `tradeoff_drivers` – Structured representation of the cost-of-deviation values, including descriptive labels and optional `account_id` references.
     - `legacy_tradeoff_drivers` – Flat representation matching the previous response contract.
     - `accounts` – Plan-level account metadata mirrored from the schedule to simplify client access.
+    - `account_drivers` – Per-account heuristic drivers explaining how APR, balance, and minimum payments influenced targeting.
 
 ## Heuristics
 

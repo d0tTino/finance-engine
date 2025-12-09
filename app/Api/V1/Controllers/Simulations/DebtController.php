@@ -81,6 +81,7 @@ class DebtController extends Controller
                             'payment'         => $entry['payment'],
                             'cash_flow'       => $entry['cash_flow'],
                             'unused_budget'   => $entry['unused_budget'],
+                            'annotations'     => $entry['annotations'] ?? [],
                         ];
                     },
                     $plan['schedule']
@@ -107,6 +108,7 @@ class DebtController extends Controller
                     'plan'       => [
                         'strategy'               => $plan['strategy'],
                         'accounts'               => $plan['accounts'] ?? [],
+                        'account_drivers'        => $plan['account_drivers'] ?? [],
                         'schedule'               => $schedule,
                         'legacy_schedule'        => $legacySchedule,
                         'recommendations'        => $plan['recommendations'] ?? [],
@@ -131,6 +133,7 @@ class DebtController extends Controller
                     'heuristic_scores'        => $plan['meta']['heuristic_scores'] ?? [],
                     'strategy_explanation'    => $plan['meta']['strategy_explanation'],
                     'accounts'                => $plan['meta']['accounts'] ?? ($plan['accounts'] ?? []),
+                    'account_drivers'         => $plan['meta']['account_drivers'] ?? ($plan['account_drivers'] ?? []),
                 ];
 
                 return $result;

@@ -223,7 +223,7 @@ class DebtSimulationService
                         'time_months' => $plan['months'] - $bestMonths,
                     ];
 
-                    $currencyDeviation = (float) $plan['cost_of_deviation']['currency'];
+                    $currencyDeviation = $plan['cost_of_deviation']['currency'];
                     $monthsDeviation   = (int) $plan['cost_of_deviation']['time_months'];
 
                     if ($plan['is_optimal']) {
@@ -266,7 +266,7 @@ class DebtSimulationService
                         'currency'    => [
                             'account_id'   => null,
                             'display_name' => 'Interest delta',
-                            'value'        => (float) $plan['cost_of_deviation']['currency'],
+                            'value'        => $plan['cost_of_deviation']['currency'],
                         ],
                         'time_months' => [
                             'account_id'   => null,
@@ -285,6 +285,7 @@ class DebtSimulationService
                             'ranking_reason'          => $rankingReason,
                             'tradeoffs'               => $tradeoffString,
                             'accounts'                => $plan['accounts'] ?? [],
+                            'account_drivers'         => $plan['account_drivers'] ?? [],
                         ]
                     );
 
@@ -332,10 +333,34 @@ class DebtSimulationService
         $accountsIndex      = [];
         $recommendations    = [];
         $legacyRecommendations = [];
+        $accountDrivers     = [];
+        $priorityContext    = $this->describeStrategyDrivers($strategy);
         foreach ($debts as $debt) {
             $accountsIndex[$debt['account_id']] = [
                 'account_id'   => $debt['account_id'],
                 'display_name' => $debt['display_name'],
+            ];
+
+            $accountDrivers[$debt['account_id']] = [
+                'account_id'    => $debt['account_id'],
+                'display_name'  => $debt['display_name'],
+                'drivers'       => [
+                    'apr' => [
+                        'display_name' => 'APR priority',
+                        'value'        => $debt['rate'],
+                        'reason'       => $priorityContext['apr'],
+                    ],
+                    'balance' => [
+                        'display_name' => 'Balance priority',
+                        'value'        => $debt['balance'],
+                        'reason'       => $priorityContext['balance'],
+                    ],
+                    'minimum_payment' => [
+                        'display_name' => 'Minimum payment',
+                        'value'        => $debt['min_payment'],
+                        'reason'       => 'Minimum payments are made before targeting extra payments.',
+                    ],
+                ],
             ];
 
             if ($debt['rate'] >= self::HIGH_APR_THRESHOLD) {
@@ -389,6 +414,7 @@ class DebtSimulationService
             $paymentPlan        = [];
             $legacyPaymentPlan  = [];
             $remainingBudget = $monthlyBudget;
+            $annotations     = [];
 
             // Pay minimums first.
             foreach ($debts as &$debt) {
@@ -443,10 +469,18 @@ class DebtSimulationService
                 $paymentPlan[$accountId]['amount'] += $extra;
                 $legacyPaymentPlan[$displayName]     = ($legacyPaymentPlan[$displayName] ?? 0.0) + $extra;
                 $remainingBudget            -= $extra;
+
+                $annotations[] = [
+                    'type'         => 'target_selection',
+                    'account_id'   => $accountId,
+                    'display_name' => $displayName,
+                    'reason'       => $priorityContext['selection'],
+                    'drivers'      => $accountDrivers[$accountId]['drivers'] ?? [],
+                ];
                 unset($target);
             }
 
-            $totalPayment    = array_sum(array_map(static fn (array $entry): float => (float) $entry['amount'], $paymentPlan));
+            $totalPayment    = array_sum(array_map(static fn (array $entry): float => $entry['amount'], $paymentPlan));
             $unusedBudget    = max($remainingBudget, 0.0);
             $totalInterest  += $interestThisMonth;
             $cashFlowTimeline[] = [
@@ -479,6 +513,7 @@ class DebtSimulationService
                 'payment'       => $totalPayment,
                 'cash_flow'     => $totalPayment,
                 'unused_budget' => $unusedBudget,
+                'annotations'   => $annotations,
             ];
 
             if ($balanceAfter > $balanceBefore) {
@@ -489,6 +524,7 @@ class DebtSimulationService
 
         return [
             'accounts'          => array_values($accountsIndex),
+            'account_drivers'   => array_values($accountDrivers),
             'schedule'          => $schedule,
             'total_interest'    => $totalInterest,
             'months'            => $month,
@@ -511,6 +547,44 @@ class DebtSimulationService
         }
 
         return false;
+    }
+
+    /**
+     * Provide human-friendly context for how a strategy chooses targets.
+     *
+     * @return array{apr: string, balance: string, selection: string}
+     */
+    private function describeStrategyDrivers(StrategyInterface $strategy): array
+    {
+        $name = $strategy->getName();
+
+        return match ($name) {
+            'avalanche' => [
+                'apr'       => 'Extra payments focus on the highest APR first to cut interest costs.',
+                'balance'   => 'Balances are considered after APR when selecting targets.',
+                'selection' => 'Chosen because this debt currently has the highest APR.',
+            ],
+            'snowball' => [
+                'apr'       => 'APR is secondary; smallest balances are targeted to gain quick wins.',
+                'balance'   => 'Extra payments prioritize the smallest balance to clear debts quickly.',
+                'selection' => 'Chosen because this debt has one of the smallest remaining balances.',
+            ],
+            'balanced' => [
+                'apr'       => 'APR does not change the proportional distribution but higher APR still accrues more interest.',
+                'balance'   => 'Extra payments are distributed proportionally to each remaining balance.',
+                'selection' => 'Chosen as part of proportional balance-based distribution.',
+            ],
+            'ml' => [
+                'apr'       => 'APR informs the model and the fallback avalanche ordering.',
+                'balance'   => 'Balances inform the model and fallback ordering when predictions are unavailable.',
+                'selection' => 'Chosen based on the machine learning ranking or avalanche fallback.',
+            ],
+            default => [
+                'apr'       => 'APR influences overall interest but may not directly control targeting.',
+                'balance'   => 'Balances inform how remaining debts are prioritized.',
+                'selection' => 'Chosen according to the strategy targeting rules.',
+            ],
+        };
     }
 
 }
