@@ -45,7 +45,7 @@ Runs heuristic strategies to generate ranked payoff plans for outstanding debts.
 - **Balanced** – Uses a smooth weighted round-robin algorithm to spread surplus payments proportionally across outstanding balances. If minimum payments exhaust the monthly budget or all debts reach zero, no additional allocations are made.
 - **ML** – Invokes an ONNX Runtime model to choose the next debt based on learned patterns. Whenever the model file is missing, fails to load, or scores stay below the configured threshold, it falls back to the avalanche heuristic.
 
-See the [Debt Simulation](debt-simulation.md) documentation—especially the [heuristics overview](debt-simulation.md#heuristics)—for request/response schemas and ranking details. The response schema always includes `cost_of_deviation`; optimal plans simply surface zero currency and time penalties so SDK adapters do not need to branch on `is_optimal`.
+See the [Debt Simulation](debt-simulation.md) documentation—especially the [heuristics overview](debt-simulation.md#heuristics)—for request/response schemas and ranking details. The response schema always includes `cost_of_deviation` with explicit `*_unknown` flags so SDK adapters can distinguish unavailable metrics from true zero penalties without branching on `is_optimal`.
 
 ### Webhooks & Event Bus
 `FinanceEventService` publishes finance events over Redis channels prefixed with `ume.events.finance.` for downstream consumers.
