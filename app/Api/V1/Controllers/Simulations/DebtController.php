@@ -149,28 +149,42 @@ class DebtController extends Controller
      *
      * @param array<string, mixed> $plan
      *
-     * @return array{currency: float, time_months: int}
+     * @return array{currency: float, time_months: int, currency_unknown: bool, time_months_unknown: bool}
      */
     private static function serializeCostOfDeviation(array $plan): array
     {
         $raw = $plan['cost_of_deviation'] ?? null;
 
-        $currency = 0.0;
-        $time     = 0;
+        $currency        = 0.0;
+        $time            = 0;
+        $currencyUnknown = true;
+        $timeUnknown     = true;
 
         if (is_array($raw)) {
             if (array_key_exists('currency', $raw) && is_numeric($raw['currency'])) {
-                $currency = (float) $raw['currency'];
+                $currency        = (float) $raw['currency'];
+                $currencyUnknown = false;
             }
 
             if (array_key_exists('time_months', $raw) && is_numeric($raw['time_months'])) {
-                $time = (int) $raw['time_months'];
+                $time        = (int) $raw['time_months'];
+                $timeUnknown = false;
+            }
+
+            if (array_key_exists('currency_unknown', $raw)) {
+                $currencyUnknown = (bool) $raw['currency_unknown'];
+            }
+
+            if (array_key_exists('time_months_unknown', $raw)) {
+                $timeUnknown = (bool) $raw['time_months_unknown'];
             }
         }
 
         return [
-            'currency'    => $currency,
-            'time_months' => $time,
+            'currency'            => $currency,
+            'time_months'         => $time,
+            'currency_unknown'    => $currencyUnknown,
+            'time_months_unknown' => $timeUnknown,
         ];
     }
 
@@ -192,8 +206,11 @@ class DebtController extends Controller
         $currencyValue = $costOfDeviation['currency'] ?? null;
         $timeValue     = $costOfDeviation['time_months'] ?? null;
 
-        $hasCurrency = is_numeric($currencyValue);
-        $hasTime     = is_numeric($timeValue);
+        $currencyUnknown = (bool) ($costOfDeviation['currency_unknown'] ?? false);
+        $timeUnknown     = (bool) ($costOfDeviation['time_months_unknown'] ?? false);
+
+        $hasCurrency = !$currencyUnknown && is_numeric($currencyValue);
+        $hasTime     = !$timeUnknown && is_numeric($timeValue);
 
         if (!$hasCurrency && !$hasTime) {
             return 'tradeoff impact unavailable';
@@ -225,7 +242,7 @@ class DebtController extends Controller
             }
         }
 
-        if ('no interest impact' === $currencyDescription && 'no time impact' === $timeDescription) {
+        if ($hasCurrency && $hasTime && 'no interest impact' === $currencyDescription && 'no time impact' === $timeDescription) {
             return 'no tradeoffs';
         }
 

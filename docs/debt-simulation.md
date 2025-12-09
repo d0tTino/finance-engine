@@ -139,7 +139,9 @@ Simulation results are cached per user to speed up repeated requests. The cache 
       },
       "cost_of_deviation": {
         "currency": 0,
-        "time_months": 0
+        "time_months": 0,
+        "currency_unknown": false,
+        "time_months_unknown": false
       },
       "meta": {
         "ranking_heuristic": "interest_then_months",
@@ -242,7 +244,9 @@ Simulation results are cached per user to speed up repeated requests. The cache 
       },
       "cost_of_deviation": {
         "currency": 61.88,
-        "time_months": 2
+        "time_months": 2,
+        "currency_unknown": false,
+        "time_months_unknown": false
       },
       "meta": {
         "ranking_heuristic": "interest_then_months",
@@ -295,7 +299,8 @@ Simulation results are cached per user to speed up repeated requests. The cache 
   - `cost_of_deviation` – Extra cost versus the optimal plan:
     - `currency` – Additional interest compared to the optimal plan.
     - `time_months` – Additional duration compared to the optimal plan in months.
-    - Optimal plans return zeros for both values so integrators can rely on a consistent object shape when checking for penalties.
+    - `currency_unknown` / `time_months_unknown` – Flags indicating whether each penalty is unavailable from the originating strategy. When `true`, treat the value as unknown rather than a zero-impact default.
+    - Optimal plans return zeros for both values with `*_unknown` fields set to `false` so integrators can rely on a consistent object shape when checking for penalties.
   - `meta` – Additional information about the plan:
     - `strategy_explanation` – Description of how the payoff strategy works.
     - `ranking_heuristic` – Ranking algorithm applied to the plans.

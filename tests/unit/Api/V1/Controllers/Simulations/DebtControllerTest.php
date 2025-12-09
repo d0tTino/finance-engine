@@ -86,4 +86,80 @@ final class DebtControllerTest extends TestCase
         self::assertIsString($tradeoffs);
         self::assertSame('loses 40.00 in interest savings and 6 extra months', $tradeoffs);
     }
+
+    public function testMissingDeviationDataIsMarkedUnknown(): void
+    {
+        $service = $this->createMock(DebtSimulationService::class);
+
+        $plan = [
+            'rank'                     => 1,
+            'is_optimal'               => true,
+            'strategy'                 => 'balanced',
+            'accounts'                 => [
+                ['account_id' => 'acc-1', 'name' => 'Debt One'],
+            ],
+            'schedule'                 => [[
+                'month'           => 1,
+                'payments'        => ['acc-1' => ['amount' => 50.0]],
+                'balances'        => ['acc-1' => ['amount' => 950.0]],
+                'payments_legacy' => ['acc-1' => ['amount' => 45.0]],
+                'balances_legacy' => ['acc-1' => ['amount' => 960.0]],
+                'interest'        => 5.0,
+                'payment'         => 50.0,
+                'cash_flow'       => 20.0,
+                'unused_budget'   => 5.0,
+            ]],
+            'recommendations'          => [],
+            'legacy_recommendations'   => [],
+            'status'                   => 'active',
+            'interest_saved'           => 5.0,
+            'time_to_payoff_months'    => 12,
+            'total_interest'           => 100.0,
+            'monthly_cash_flow'        => [['month' => 1, 'cash_flow' => 20.0]],
+            'meta'                     => [
+                'ranking_heuristic'       => 'heuristic',
+                'ranking_reason'          => null,
+                'tradeoff_drivers'        => [],
+                'legacy_tradeoff_drivers' => [],
+                'heuristic_scores'        => [],
+                'strategy_explanation'    => 'explanation',
+                'accounts'                => [],
+            ],
+        ];
+
+        $service->expects(self::once())
+            ->method('simulate')
+            ->willReturn([$plan]);
+
+        $controller = new DebtController($service);
+
+        $request = new class extends DebtRequest {
+            /**
+             * @return array<string, mixed>
+             */
+            public function getData(): array
+            {
+                return [
+                    'user_id'        => 'user-uuid',
+                    'group_id'       => null,
+                    'accounts'       => [
+                        ['account_id' => 'acc-1', 'balance' => 100.0, 'apr' => 0.05, 'minimum_payment' => 20.0],
+                    ],
+                    'monthly_budget' => 100.0,
+                    'max_options'    => 1,
+                ];
+            }
+        };
+
+        $response = $controller($request);
+
+        $payload    = $response->getData(true);
+        $action     = $payload['proposed_actions'][0];
+        $costOfDev  = $action['cost_of_deviation'];
+        $tradeoffs  = $action['meta']['tradeoffs'];
+
+        self::assertTrue($costOfDev['currency_unknown']);
+        self::assertTrue($costOfDev['time_months_unknown']);
+        self::assertSame('tradeoff impact unavailable', $tradeoffs);
+    }
 }
