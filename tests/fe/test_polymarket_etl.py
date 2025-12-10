@@ -1,12 +1,11 @@
 import sys
-from pathlib import Path
-
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 
-from fe.data.polymarket import etl
+from fe.data.polymarket import etl  # noqa: E402
 
 
 def test_get_retries():

@@ -11,12 +11,12 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import logging
+import os
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, TypeVar
+from typing import Any, Callable, Dict, List, Optional, Sequence, TypeVar
 
 import pandas as pd
 import requests
@@ -303,6 +303,8 @@ def save_market(
                 category=category,
             )
             order_book = ob_model.model_dump()
+            order_book["bids"] = [list(level) for level in order_book.get("bids", [])]
+            order_book["asks"] = [list(level) for level in order_book.get("asks", [])]
         except Exception:
             order_book = None
 
@@ -392,30 +394,145 @@ def assert_partitions(
         )
 
 
-def main(output_dir: Optional[Path] = None, days: int = 365) -> None:
+def _configure_logging(
+    log_dir: Optional[Path], level: str = "INFO"
+) -> tuple[Optional[Path], logging.Logger]:
+    level_name = level.upper()
+    log_level = getattr(logging, level_name, logging.INFO)
+
+    handlers: list[logging.Handler] = [logging.StreamHandler()]
+    log_path = None
+
+    if log_dir:
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_path = log_dir / f"polymarket_etl_{datetime.utcnow():%Y%m%dT%H%M%SZ}.log"
+        handlers.append(logging.FileHandler(log_path))
+
+    logging.basicConfig(
+        level=log_level,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        handlers=handlers,
+    )
+    logger = logging.getLogger(__name__)
+    return log_path, logger
+
+
+def prune_logs(log_dir: Path, retention_days: int) -> Sequence[Path]:
+    """Delete log files older than ``retention_days``.
+
+    Parameters
+    ----------
+    log_dir:
+        Directory containing log files.
+    retention_days:
+        Files older than this many days will be removed. Values <= 0
+        disable pruning.
+    """
+
+    if retention_days <= 0 or not log_dir.exists():
+        return []
+
+    cutoff = datetime.utcnow() - timedelta(days=retention_days)
+    removed: list[Path] = []
+
+    for log_file in log_dir.glob("*.log"):
+        try:
+            modified = datetime.utcfromtimestamp(log_file.stat().st_mtime)
+        except OSError:
+            continue
+        if modified < cutoff:
+            try:
+                log_file.unlink()
+                removed.append(log_file)
+            except OSError:
+                logger.warning("Failed to delete old log %s", log_file)
+    return removed
+
+
+def main(
+    output_dir: Optional[Path] = None,
+    days: int = 365,
+    min_coverage: float = 0.9,
+    log_dir: Optional[Path] = None,
+    log_retention_days: int = 14,
+    log_level: str = "INFO",
+) -> None:
+    output_path = output_dir or _DEFAULT_OUTPUT_DIR
+    resolved_log_dir = log_dir or Path(
+        os.environ.get("POLYMARKET_LOG_DIR", output_path / "logs")
+    )
+
+    log_path, configured_logger = _configure_logging(resolved_log_dir, log_level)
+    if log_path:
+        configured_logger.info("Logging ETL run to %s", log_path)
+
+    removed_logs = prune_logs(resolved_log_dir, log_retention_days)
+    if removed_logs:
+        configured_logger.info(
+            "Pruned %s old log file(s) older than %s days",
+            len(removed_logs),
+            log_retention_days,
+        )
+
     markets = get_resolved_markets(days)
+    configured_logger.info("Fetched %s resolved market(s)", len(markets))
     for market in markets:
-        save_market(market, output_dir)
-    assert_partitions(output_dir or _DEFAULT_OUTPUT_DIR, days)
+        save_market(market, output_path)
+    assert_partitions(output_path, days, min_coverage)
 
 
-def cli() -> None:
-    parser = argparse.ArgumentParser(description="Polymarket ETL")
+def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run the Polymarket ETL")
     parser.add_argument(
         "--output-dir",
         type=Path,
         default=None,
-        help="Directory for output parquet files",
+        help="Where to write partitioned parquet files (defaults to POLYMARKET_OUTPUT_DIR)",
     )
     parser.add_argument(
         "--days",
         type=int,
         default=365,
-        help="Number of days of resolved markets to process",
+        help="Number of trailing days to download and validate",
     )
-    args = parser.parse_args()
+    parser.add_argument(
+        "--min-coverage",
+        type=float,
+        default=0.9,
+        help="Minimum acceptable partition coverage for the validation window",
+    )
+    parser.add_argument(
+        "--log-dir",
+        type=Path,
+        default=None,
+        help="Directory for ETL log files (defaults to POLYMARKET_LOG_DIR or <output>/logs)",
+    )
+    parser.add_argument(
+        "--log-retention-days",
+        type=int,
+        default=14,
+        help="Prune log files older than this many days; set to 0 to disable",
+    )
+    parser.add_argument(
+        "--log-level",
+        type=str,
+        default="INFO",
+        help="Logging level (DEBUG, INFO, WARNING, ERROR)",
+    )
+    return parser.parse_args(argv)
+
+
+def cli() -> None:
+    args = _parse_args()
     try:
-        main(args.output_dir, args.days)
+        main(
+            output_dir=args.output_dir,
+            days=args.days,
+            min_coverage=args.min_coverage,
+            log_dir=args.log_dir,
+            log_retention_days=args.log_retention_days,
+            log_level=args.log_level,
+        )
     except PartitionCoverageError as exc:
         logger.error("%s", exc)
         raise SystemExit(1) from exc

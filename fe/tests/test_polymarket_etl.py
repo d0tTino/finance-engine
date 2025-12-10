@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -111,3 +112,19 @@ def test_assert_partitions_enforces_minimum_coverage(
 
     with pytest.raises(etl.PartitionCoverageError):
         etl.assert_partitions(tmp_path, days=5, min_coverage=0.8)
+
+
+def test_prune_logs_respects_retention(tmp_path: Path) -> None:
+    old_log = tmp_path / "run1.log"
+    fresh_log = tmp_path / "run2.log"
+    old_log.write_text("old")
+    fresh_log.write_text("fresh")
+
+    cutoff = datetime.utcnow().timestamp() - (5 * 86400)
+    os.utime(old_log, (cutoff, cutoff))
+
+    removed = etl.prune_logs(tmp_path, retention_days=3)
+
+    assert old_log in removed
+    assert fresh_log.exists()
+    assert fresh_log not in removed
