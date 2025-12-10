@@ -173,4 +173,3 @@ def test_walk_forward_structure_and_parameter_usage(sample_frame: pd.DataFrame) 
     assert result.loc[0, "trades"] == 1
     assert result.loc[0, "sample_size"] == 1
     assert result.loc[0, "avg_return"] == pytest.approx(0.02)
-

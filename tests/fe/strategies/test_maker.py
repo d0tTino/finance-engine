@@ -7,7 +7,7 @@ import pytest
 
 sys.path.append(str(Path(__file__).resolve().parents[3]))
 
-from fe.strategies.maker import Strategy, make_quote, pnl_metrics, run_backtest
+from fe.strategies.maker import Strategy, make_quote, pnl_metrics, run_backtest  # noqa: E402
 
 
 def test_extreme_liquidity_quote_is_not_inverted():
